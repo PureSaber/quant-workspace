@@ -1,0 +1,60 @@
+# PureSaber quant stack — sibling repo layout under root.
+# Override root via QUANT_WORKSPACE_ROOT or --root CLI flag.
+
+root: D:/projects
+
+projects:
+  a-share-multifactor:
+    repo: a-share-multifactor
+    outputs: outputs
+
+  sklearn-stock-trend:
+    repo: sklearn-stock-trend
+    outputs: outputs
+
+  quant-futures-spread:
+    repo: future_spread_analysis-team-framework
+    outputs: output
+
+  quant-data-kit:
+    repo: quant-data-kit
+    data: data
+
+  quant-lab:
+    repo: quant-lab
+    state: state
+
+  quant-report-hub:
+    repo: quant-report-hub
+    reports: reports
+
+  quant-regime:
+    repo: quant-regime
+    state: state
+
+  quant-paper-sim:
+    repo: quant-paper-sim
+    state: state
+
+  quant-risk-monitor:
+    repo: quant-risk-monitor
+    state: state
+
+  quant-agent:
+    repo: quant-agent
+
+  quant-pipeline:
+    repo: quant-pipeline
+    state: state
+
+  quant-factors:
+    repo: quant-factors
+    data: data
+
+  quant-portfolio:
+    repo: quant-portfolio
+    state: state
+
+  quant-research-notes:
+    repo: quant-research-notes
+    notes: experiment-log
