@@ -1,8 +1,14 @@
 from pathlib import Path
 
+import pytest
 import yaml
 
 from quant_workspace.loader import load_workspace, resolve_path
+
+
+@pytest.fixture(autouse=True)
+def _clear_workspace_root_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("QUANT_WORKSPACE_ROOT", raising=False)
 
 
 def test_load_workspace_resolves_sibling_paths(tmp_path: Path) -> None:

@@ -1,0 +1,61 @@
+# Local workspace layout for Desktop quant_projects root.
+# Use: quant-workspace show --config configs/desktop.workspace.yaml
+# Or set QUANT_WORKSPACE_ROOT=C:\Users\ASUS\Desktop\quant_projects
+
+root: C:/Users/ASUS/Desktop/quant_projects
+
+projects:
+  a-share-multifactor:
+    repo: a-share-multifactor
+    outputs: outputs
+
+  sklearn-stock-trend:
+    repo: sklearn-stock-trend
+    outputs: outputs
+
+  quant-futures-spread:
+    repo: quant-futures-spread
+    outputs: output
+
+  quant-data-kit:
+    repo: quant-data-kit
+    data: data
+
+  quant-lab:
+    repo: quant-lab
+    state: state
+
+  quant-report-hub:
+    repo: quant-report-hub
+    reports: reports
+
+  quant-regime:
+    repo: quant-regime
+    state: state
+
+  quant-paper-sim:
+    repo: quant-paper-sim
+    state: state
+
+  quant-risk-monitor:
+    repo: quant-risk-monitor
+    state: state
+
+  quant-agent:
+    repo: quant-agent
+
+  quant-pipeline:
+    repo: quant-pipeline
+    state: state
+
+  quant-factors:
+    repo: quant-factors
+    data: data
+
+  quant-portfolio:
+    repo: quant-portfolio
+    state: state
+
+  quant-research-notes:
+    repo: quant-research-notes
+    notes: experiment-log
