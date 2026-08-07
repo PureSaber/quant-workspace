@@ -1,7 +1,7 @@
 # PureSaber quant stack — sibling repo layout under root.
 # Override root via QUANT_WORKSPACE_ROOT or --root CLI flag.
 
-root: D:/projects
+root: D:/quant_projects
 
 projects:
   a-share-multifactor:
@@ -13,7 +13,7 @@ projects:
     outputs: outputs
 
   quant-futures-spread:
-    repo: future_spread_analysis-team-framework
+    repo: quant-futures-spread
     outputs: output
 
   quant-data-kit:
