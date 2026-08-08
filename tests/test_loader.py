@@ -56,3 +56,17 @@ def test_resolve_path_helper(tmp_path: Path) -> None:
     cfg = root / "ws.yaml"
     cfg.write_text(yaml.safe_dump({"root": str(root), "projects": {"x": {"repo": "x"}}}), encoding="utf-8")
     assert resolve_path(cfg, "x", "repo") == (root / "x").resolve()
+
+
+def test_default_workspace_futures_and_lab_contract() -> None:
+    """Wave 3: default.workspace.yaml is the shared path contract for lab/futures."""
+    cfg = Path(__file__).resolve().parents[1] / "configs" / "default.workspace.yaml"
+    ws = load_workspace(cfg)
+    futures_out = ws.path("quant-futures-spread", "outputs")
+    assert futures_out.name == "output"
+    assert "quant-futures-spread" in str(futures_out).replace("\\", "/")
+    lab = ws.lab_workspace_yaml()
+    names = {p["name"]: p["outputs"] for p in lab["projects"]}
+    assert "quant-futures-spread" in names
+    assert "future_spread_analysis-team-framework" not in names["quant-futures-spread"]
+    assert "quant-futures-spread" in names["quant-futures-spread"].replace("\\", "/")
