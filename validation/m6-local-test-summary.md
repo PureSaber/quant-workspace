@@ -34,14 +34,18 @@
   --cov-fail-under=80
 ```
 
-结果：`40 passed in 32.86s`，0skip、0failure；全仓分支覆盖率`91.46%`。
+结果：`42 passed`，0skip、0failure；全仓覆盖率`91.83%`。
 
 ```powershell
 读取`coverage.json`中`stack_manifest.py`的`covered_branches/num_branches`并校验不低于90%
 ```
 
-结果：核心`stack_manifest.py`纯分支覆盖率`227/248=91.53%`，门禁通过；CI采用
+结果：核心`stack_manifest.py`纯分支覆盖率`235/256=91.80%`，门禁通过；CI采用
 相同的coverage JSON纯分支算法，不混入语句覆盖率。
+
+独立验证发现的两个P1已补入对抗回归：缺失`layer`现在产生`LAYER_MISSING`并阻断
+release；无效PEP508字符串现在保留为`DEPENDENCY_REQUIREMENT_INVALID`，不再静默从
+清单和DAG消失。同时`verify-stack`拒绝未知顶层字段及非canonical JSON。
 
 ```powershell
 .\.venv-m6\Scripts\python.exe -m compileall -q src

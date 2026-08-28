@@ -27,6 +27,17 @@ from quant_workspace.models import Workspace
 STACK_MANIFEST_SCHEMA_VERSION = "1.0.0"
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_STACK_MANIFEST_FIELDS = {
+    "schema_version",
+    "mode",
+    "created_at",
+    "workspace_config_sha256",
+    "repositories",
+    "dependency_dag",
+    "allowed_schemas",
+    "release_ready",
+    "manifest_hash",
+}
 _LAYERS = {
     "data": 0,
     "contract": 0,
@@ -183,6 +194,9 @@ class StackManifest:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> StackManifest:
         try:
+            unknown = sorted(set(payload) - _STACK_MANIFEST_FIELDS)
+            if unknown:
+                raise ValueError(f"unknown top-level fields: {unknown}")
             repositories = tuple(_repository_from_dict(item) for item in payload["repositories"])
             dag = tuple(
                 DependencyNode(
@@ -460,7 +474,9 @@ def _discover_locks(repo: Path, lock_paths: tuple[str, ...]) -> tuple[LockFile, 
         candidate = Path(raw)
         resolved = candidate.resolve() if candidate.is_absolute() else (repo / candidate).resolve()
         relative = _relative_path(resolved, repo)
-        digest = _sha256_file(resolved) if resolved.is_file() else ""
+        digest = (
+            "" if _path_escapes(relative) else _sha256_file(resolved) if resolved.is_file() else ""
+        )
         locks.append(LockFile(path=relative, sha256=digest))
     return tuple(sorted(set(locks)))
 
@@ -508,7 +524,14 @@ def _resolve_dependency(
     try:
         requirement = Requirement(requirement_text)
     except InvalidRequirement:
-        return None
+        return InternalDependency(
+            package="",
+            project="",
+            ref=requirement_text,
+            ref_kind="floating",
+            resolved_commit="",
+            origin="",
+        )
     package = _normalize_package(requirement.name)
     dependency_origin = ""
     ref = ""
@@ -964,7 +987,16 @@ def _validate_stack_manifest(
                     )
                 )
             packages[normalized_package] = repo.project
-        if repo.layer and repo.layer not in _LAYERS:
+        if not repo.layer:
+            issues.append(
+                _governance_issue(
+                    manifest.mode,
+                    "LAYER_MISSING",
+                    "Repository dependency layer is not declared or known",
+                    repo.project,
+                )
+            )
+        elif repo.layer not in _LAYERS:
             issues.append(
                 _governance_issue(
                     manifest.mode, "LAYER_INVALID", f"Unknown layer {repo.layer}", repo.project
@@ -1061,6 +1093,16 @@ def _validate_stack_manifest(
             )
         seen_dependencies: dict[str, InternalDependency] = {}
         for dependency in repo.internal_dependencies:
+            if not dependency.package or not dependency.project:
+                issues.append(
+                    _governance_issue(
+                        manifest.mode,
+                        "DEPENDENCY_REQUIREMENT_INVALID",
+                        f"Dependency requirement is not valid PEP 508: {dependency.ref!r}",
+                        project,
+                    )
+                )
+                continue
             existing = seen_dependencies.get(dependency.package)
             if existing is not None and existing != dependency:
                 issues.append(
@@ -1259,9 +1301,13 @@ def write_stack_manifest(path: Path | str, manifest: StackManifest) -> None:
 
 def load_stack_manifest(path: Path | str) -> StackManifest:
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = Path(path).read_bytes()
+        payload = json.loads(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot read StackManifest: {exc}") from exc
     if not isinstance(payload, dict):
         raise TypeError("StackManifest root must be an object")
-    return StackManifest.from_dict(payload)
+    manifest = StackManifest.from_dict(payload)
+    if raw != canonical_manifest_bytes(manifest) + b"\n":
+        raise ValueError("StackManifest file is not canonical JSON")
+    return manifest
