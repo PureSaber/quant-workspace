@@ -33,7 +33,27 @@ jobs:
         run: ruff format --check src tests
 
       - name: Pytest
-        run: pytest -q --cov=quant_workspace --cov-branch --cov-report=term-missing --cov-fail-under=80
+        run: >-
+          pytest -q --cov=quant_workspace --cov-branch --cov-report=term-missing
+          --cov-report=json:coverage.json --cov-fail-under=80
 
       - name: Core manifest coverage
-        run: coverage report --include='src/quant_workspace/stack_manifest.py' --fail-under=90
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+
+          report = json.load(open("coverage.json", encoding="utf-8"))
+          path = next(
+              key
+              for key in report["files"]
+              if key.replace(chr(92), "/").endswith("quant_workspace/stack_manifest.py")
+          )
+          summary = report["files"][path]["summary"]
+          covered = summary["covered_branches"]
+          total = summary["num_branches"]
+          ratio = covered / total if total else 1.0
+          print(f"stack_manifest.py pure branch coverage: {covered}/{total} = {ratio:.2%}")
+          if ratio < 0.90:
+              raise SystemExit("stack_manifest.py pure branch coverage must be >= 90%")
+          PY
