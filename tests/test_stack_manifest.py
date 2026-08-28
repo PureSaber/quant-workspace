@@ -368,6 +368,52 @@ def test_reverse_layer_dependency_fails_closed(tmp_path: Path) -> None:
     assert "DEPENDENCY_DIRECTION_INVALID" in codes
 
 
+def test_missing_layer_cannot_bypass_dependency_direction_gate(tmp_path: Path) -> None:
+    root = tmp_path / "stack"
+    root.mkdir()
+    strategy = _create_repo(root, "custom-strategy")
+    pyproject = strategy / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace('layer = "strategy"\n', ""),
+        encoding="utf-8",
+    )
+    _git(strategy, "add", ".")
+    _git(strategy, "commit", "-m", "omit layer")
+    _git(strategy, "tag", "-f", "v1.0.0")
+    _create_repo(
+        root,
+        "quant-data-kit",
+        layer="data",
+        dependencies=(
+            "custom-strategy @ git+https://github.com/PureSaber/custom-strategy.git@v1.0.0",
+        ),
+    )
+    workspace = _workspace(root)
+    audit, codes = _audit_for_release_failure(workspace)
+    assert "LAYER_MISSING" in codes
+    assert (
+        next(record for record in audit.repositories if record.project == "custom-strategy").layer
+        == ""
+    )
+    with pytest.raises(StackManifestReleaseError):
+        discover_stack(workspace, "release", CREATED_AT)
+
+
+def test_invalid_pep508_dependency_is_preserved_as_a_release_error(tmp_path: Path) -> None:
+    root = tmp_path / "stack"
+    root.mkdir()
+    _create_repo(root, "base-lib", layer="data")
+    _create_repo(root, "strategy-app", dependencies=("base-lib @",))
+    workspace = _workspace(root)
+    audit, codes = _audit_for_release_failure(workspace)
+    assert "DEPENDENCY_REQUIREMENT_INVALID" in codes
+    strategy = next(record for record in audit.repositories if record.project == "strategy-app")
+    assert strategy.internal_dependencies[0].ref == "base-lib @"
+    assert strategy.internal_dependencies[0].package == ""
+    with pytest.raises(StackManifestReleaseError):
+        discover_stack(workspace, "release", CREATED_AT)
+
+
 @pytest.mark.parametrize(
     ("schemas", "locks", "expected"),
     [
@@ -705,6 +751,19 @@ def test_model_deserialization_and_timestamp_validation(release_workspace, tmp_p
     bad_root.write_text("[]", encoding="utf-8")
     with pytest.raises(TypeError, match="root must be an object"):
         load_stack_manifest(bad_root)
+    noncanonical = tmp_path / "pretty.json"
+    noncanonical.write_text(json.dumps(manifest.to_dict(), indent=2), encoding="utf-8")
+    with pytest.raises(ValueError, match="not canonical"):
+        load_stack_manifest(noncanonical)
+    unknown = manifest.to_dict()
+    unknown["unexpected"] = True
+    unknown_path = tmp_path / "unknown.json"
+    unknown_path.write_text(
+        json.dumps(unknown, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="unknown top-level"):
+        load_stack_manifest(unknown_path)
     with pytest.raises(ValueError, match="timezone"):
         discover_stack(workspace, "audit", "2026-08-29T00:00:00")
     with pytest.raises(ValueError, match="ISO-8601"):

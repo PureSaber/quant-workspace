@@ -33,7 +33,7 @@ schemas = [
 lock-files = ["requirements.lock"]
 ```
 
-Supported layers are `data`, `contract`, `execution`, `strategy`, `portfolio-risk`, `reporting`, and `orchestration`. Internal dependencies are discovered from PEP 508 project dependencies. Release mode accepts only a local, resolvable tag or a full 40-character commit and requires it to resolve to the dependency repository's recorded `HEAD`.
+Supported layers are `data`, `contract`, `execution`, `strategy`, `portfolio-risk`, `reporting`, and `orchestration`; a missing or unknown layer blocks release so dependency-direction checks cannot be bypassed. Internal dependencies are discovered from PEP 508 project dependencies, and malformed requirement strings are preserved as explicit audit errors instead of being ignored. Release mode accepts only a local, resolvable tag or a full 40-character commit and requires it to resolve to the dependency repository's recorded `HEAD`.
 
 Workspace YAML may freeze the allowed schema set. If omitted, the union of repository declarations is recorded.
 
@@ -43,7 +43,7 @@ allowed_schemas:
     version: 2.0.0
 ```
 
-`audit` writes a deterministic manifest with exact warnings and always sets `release_ready=false`. `release` fails closed for dirty or untagged repositories, floating or mismatched internal references, missing targets, dependency cycles, missing schemas/locks, and path escape. The writer fsyncs a same-directory temporary file, publishes atomically, and never replaces an existing path.
+`audit` writes a deterministic manifest with exact warnings and always sets `release_ready=false`. `release` fails closed for dirty or untagged repositories, floating or mismatched internal references, missing targets, dependency cycles, missing layers, malformed PEP 508 requirements, missing schemas/locks, and path escape. The writer fsyncs a same-directory temporary file, publishes atomically, and never replaces an existing path. `verify-stack` accepts only the canonical JSON bytes emitted by the writer and rejects unknown top-level fields.
 
 ## Related
 
