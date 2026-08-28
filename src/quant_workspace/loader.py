@@ -36,7 +36,9 @@ def _project_paths(name: str, root: Path, entry: dict) -> ProjectPaths:
     return ProjectPaths(**kwargs, extra=extra)
 
 
-def load_workspace(config_path: Path | str, *, root_override: Path | str | None = None) -> Workspace:
+def load_workspace(
+    config_path: Path | str, *, root_override: Path | str | None = None
+) -> Workspace:
     config_path = Path(config_path).resolve()
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
