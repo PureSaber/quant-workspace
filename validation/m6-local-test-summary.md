@@ -37,11 +37,11 @@
 结果：`40 passed in 32.86s`，0skip、0failure；全仓分支覆盖率`91.46%`。
 
 ```powershell
-.\.venv-m6\Scripts\coverage.exe report `
-  --include='src/quant_workspace/stack_manifest.py' --fail-under=90
+读取`coverage.json`中`stack_manifest.py`的`covered_branches/num_branches`并校验不低于90%
 ```
 
-结果：核心`stack_manifest.py`分支覆盖率`94%`，门禁通过。
+结果：核心`stack_manifest.py`纯分支覆盖率`227/248=91.53%`，门禁通过；CI采用
+相同的coverage JSON纯分支算法，不混入语句覆盖率。
 
 ```powershell
 .\.venv-m6\Scripts\python.exe -m compileall -q src
