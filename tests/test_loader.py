@@ -41,7 +41,9 @@ def test_lab_workspace_yaml(tmp_path: Path) -> None:
     (root / "p1" / "outputs").mkdir(parents=True)
     cfg = root / "ws.yaml"
     cfg.write_text(
-        yaml.safe_dump({"root": str(root), "projects": {"p1": {"repo": "p1", "outputs": "outputs"}}}),
+        yaml.safe_dump(
+            {"root": str(root), "projects": {"p1": {"repo": "p1", "outputs": "outputs"}}}
+        ),
         encoding="utf-8",
     )
     ws = load_workspace(cfg)
@@ -54,7 +56,9 @@ def test_resolve_path_helper(tmp_path: Path) -> None:
     root = tmp_path
     (root / "x").mkdir()
     cfg = root / "ws.yaml"
-    cfg.write_text(yaml.safe_dump({"root": str(root), "projects": {"x": {"repo": "x"}}}), encoding="utf-8")
+    cfg.write_text(
+        yaml.safe_dump({"root": str(root), "projects": {"x": {"repo": "x"}}}), encoding="utf-8"
+    )
     assert resolve_path(cfg, "x", "repo") == (root / "x").resolve()
 
 
@@ -70,3 +74,4 @@ def test_default_workspace_futures_and_lab_contract() -> None:
     assert "quant-futures-spread" in names
     assert "future_spread_analysis-team-framework" not in names["quant-futures-spread"]
     assert "quant-futures-spread" in names["quant-futures-spread"].replace("\\", "/")
+    assert {"quant-execution", "quant-crypto-basis", "quant-workspace"} <= set(ws.projects)

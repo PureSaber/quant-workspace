@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -22,10 +22,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -r requirements.lock
+          pip install -e . --no-deps --no-build-isolation
 
       - name: Ruff check
         run: ruff check src tests
 
+      - name: Ruff format
+        run: ruff format --check src tests
+
       - name: Pytest
-        run: pytest -q
+        run: pytest -q --cov=quant_workspace --cov-branch --cov-report=term-missing --cov-fail-under=80
+
+      - name: Core manifest coverage
+        run: coverage report --include='src/quant_workspace/stack_manifest.py' --fail-under=90
