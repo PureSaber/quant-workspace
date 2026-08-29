@@ -264,6 +264,21 @@ def test_from_dict_rejects_invalid_scalar_types_and_values(tmp_path: Path) -> No
     with pytest.raises(ValueError, match="must be finite"):
         M7Certification.from_dict(payload)
 
+    payload = _certification(tmp_path).to_dict()
+    payload["crypto_l2"]["providers"] = "binance"
+    with pytest.raises(ValueError, match="providers must be an array"):
+        M7Certification.from_dict(payload)
+
+    payload = _certification(tmp_path).to_dict()
+    payload["data_standardization"]["evidence"]["path"] = 1
+    with pytest.raises(ValueError, match="evidence path must be a string"):
+        M7Certification.from_dict(payload)
+
+    payload = _certification(tmp_path).to_dict()
+    payload["ci"] = ["not-an-object"]
+    with pytest.raises(ValueError, match="CI result must be an object"):
+        M7Certification.from_dict(payload)
+
 
 def test_all_benchmark_and_evidence_fail_closed_branches(tmp_path: Path) -> None:
     certification = _certification(tmp_path)
