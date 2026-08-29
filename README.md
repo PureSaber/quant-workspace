@@ -20,6 +20,19 @@ quant-workspace verify-stack stack-manifest.json
 
 Set `QUANT_WORKSPACE_ROOT=D:/projects` to override the `root` field in YAML.
 
+For the Cross-Asset & Multi-Frequency v2 release, use
+`configs/v2.release.workspace.yaml`. It contains exactly 14 runtime repositories and resolves its
+root relative to the checked-out sibling layout. Legacy or documentation-only projects remain in
+the existing desktop/default configs but are excluded from the release manifest. The allowed schema
+set is intentionally derived from the tagged repositories' declarations, so the manifest records
+the complete canonical union without duplicating it in YAML.
+
+```bash
+quant-workspace --config configs/v2.release.workspace.yaml stack-manifest \
+  --mode release --out ../validation-logs/m6/stack-manifest-v2.json
+quant-workspace verify-stack ../validation-logs/m6/stack-manifest-v2.json
+```
+
 ## Stack declarations
 
 Each runnable repository declares release metadata in `pyproject.toml`. Lock files are repository-relative and must not escape the repository.
@@ -44,6 +57,11 @@ allowed_schemas:
 ```
 
 `audit` writes a deterministic manifest with exact warnings and always sets `release_ready=false`. `release` fails closed for dirty or untagged repositories, floating or mismatched internal references, missing targets, dependency cycles, missing layers, malformed PEP 508 requirements, missing schemas/locks, and path escape. The writer fsyncs a same-directory temporary file, publishes atomically, and never replaces an existing path. `verify-stack` accepts only the canonical JSON bytes emitted by the writer and rejects unknown top-level fields.
+
+The v2 release config is a scope contract only: it never stores candidate commits or tags. Release
+discovery reads those values from clean local repositories after their default-branch CI and
+annotated tags have passed. Roll back the config by reverting its commit; never repair a manifest
+by moving a historical tag or editing canonical JSON.
 
 ## Related
 
