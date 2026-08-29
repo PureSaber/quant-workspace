@@ -75,3 +75,28 @@ def test_default_workspace_futures_and_lab_contract() -> None:
     assert "future_spread_analysis-team-framework" not in names["quant-futures-spread"]
     assert "quant-futures-spread" in names["quant-futures-spread"].replace("\\", "/")
     assert {"quant-execution", "quant-crypto-basis", "quant-workspace"} <= set(ws.projects)
+
+
+def test_v2_release_workspace_has_exact_runtime_scope() -> None:
+    cfg = Path(__file__).resolve().parents[1] / "configs" / "v2.release.workspace.yaml"
+    workspace = load_workspace(cfg)
+    assert workspace.root == cfg.parents[2].resolve()
+    assert set(workspace.projects) == {
+        "a-share-multifactor",
+        "quant-agent",
+        "quant-crypto-basis",
+        "quant-data-kit",
+        "quant-execution",
+        "quant-factors",
+        "quant-futures-spread",
+        "quant-lab",
+        "quant-paper-sim",
+        "quant-pipeline",
+        "quant-portfolio",
+        "quant-report-hub",
+        "quant-risk-monitor",
+        "quant-workspace",
+    }
+    assert all(
+        project.repo == workspace.root / name for name, project in workspace.projects.items()
+    )
