@@ -23,6 +23,7 @@ _REQUIRED_CRYPTO_CAPABILITIES = frozenset(
 )
 _REQUIRED_DOMESTIC_CAPABILITIES = frozenset({"domestic-l2-replay"})
 _REQUIRED_CI_PROJECTS = frozenset({"quant-data-kit", "quant-execution", "quant-workspace"})
+_REQUIRED_CI_PROJECT_ORDER = ("quant-data-kit", "quant-execution", "quant-workspace")
 _REQUIRED_PYTHONS = ("3.10", "3.11", "3.12")
 
 
@@ -420,11 +421,11 @@ def _market_issues(
     issues = _evidence_issue(evidence.evidence, label, evidence_root)
     if evidence.status not in {"market-data-certified", "fixture-certified"}:
         issues.append(ValidationIssue("error", "MARKET_STATUS_INVALID", label))
-    if tuple(sorted(set(evidence.providers))) != tuple(sorted(evidence.providers)):
+    if evidence.providers != tuple(sorted(set(evidence.providers))):
         issues.append(ValidationIssue("error", "MARKET_PROVIDERS_INVALID", label))
     if not evidence.providers:
         issues.append(ValidationIssue("error", "MARKET_PROVIDERS_MISSING", label))
-    if tuple(sorted(set(evidence.capabilities))) != tuple(sorted(evidence.capabilities)):
+    if evidence.capabilities != tuple(sorted(set(evidence.capabilities))):
         issues.append(ValidationIssue("error", "MARKET_CAPABILITIES_INVALID", label))
     if not evidence.capabilities:
         issues.append(ValidationIssue("error", "MARKET_CAPABILITIES_MISSING", label))
@@ -432,6 +433,8 @@ def _market_issues(
     end = _timestamp(evidence.window_end)
     if start is None or end is None or end <= start:
         issues.append(ValidationIssue("error", "MARKET_WINDOW_INVALID", label))
+    elif evidence.continuous_days != int((end - start).total_seconds() // 86400):
+        issues.append(ValidationIssue("error", "MARKET_CONTINUOUS_DAYS_MISMATCH", label))
     if crypto:
         if evidence.status != "market-data-certified":
             issues.append(ValidationIssue("error", "CRYPTO_NOT_MARKET_CERTIFIED", label))
@@ -452,6 +455,8 @@ def _market_issues(
             )
         )
     else:
+        if "supplier-neutral" in evidence.providers:
+            issues.append(ValidationIssue("error", "DOMESTIC_PROVIDER_UNSPECIFIED", label))
         if not _REQUIRED_DOMESTIC_CAPABILITIES.issubset(evidence.capabilities):
             issues.append(ValidationIssue("error", "DOMESTIC_CAPABILITIES_INCOMPLETE", label))
         if evidence.continuous_days < 30:
@@ -472,6 +477,16 @@ def validate_m7_certification(
     created_at = _timestamp(certification.created_at)
     if created_at is None or not certification.created_at.endswith("Z"):
         issues.append(ValidationIssue("error", "CREATED_AT_INVALID", "M7 certification"))
+    market_ends = tuple(
+        timestamp
+        for timestamp in (
+            _timestamp(certification.crypto_l2.window_end),
+            _timestamp(certification.domestic_l2.window_end),
+        )
+        if timestamp is not None
+    )
+    if created_at is not None and market_ends and created_at < max(market_ends):
+        issues.append(ValidationIssue("error", "CERTIFICATION_PREMATURE", "M7 certification"))
     if not _SHA256.fullmatch(
         certification.certification_sha256
     ) or certification.certification_sha256 != certification_hash(certification):
@@ -508,8 +523,8 @@ def validate_m7_certification(
             evidence_root=evidence_root,
         )
     )
-    projects = {item.project for item in certification.ci}
-    if projects != _REQUIRED_CI_PROJECTS or len(projects) != len(certification.ci):
+    projects = tuple(item.project for item in certification.ci)
+    if set(projects) != _REQUIRED_CI_PROJECTS or projects != _REQUIRED_CI_PROJECT_ORDER:
         issues.append(ValidationIssue("error", "CI_PROJECTS_INCOMPLETE", "CI"))
     for item in certification.ci:
         if not _SHA40.fullmatch(item.commit):
@@ -518,7 +533,9 @@ def validate_m7_certification(
             issues.append(ValidationIssue("error", "CI_PYTHON_MATRIX_INCOMPLETE", item.project))
         if item.status != "success":
             issues.append(ValidationIssue("error", "CI_FAILED", item.project))
-        if not item.run_url.startswith("https://github.com/"):
+        if not item.run_url.startswith(
+            f"https://github.com/PureSaber/{item.project}/actions/runs/"
+        ):
             issues.append(ValidationIssue("error", "CI_URL_INVALID", item.project))
     errors = [issue for issue in issues if issue.severity == "error"]
     rc_ready = not errors

@@ -66,7 +66,11 @@ def _certification(root: Path, *, domestic_status: str = "fixture-certified") ->
     )
     domestic = MarketDataEvidence(
         status=domestic_status,  # type: ignore[arg-type]
-        providers=("supplier-neutral",),
+        providers=(
+            ("licensed-domestic-provider",)
+            if domestic_status == "market-data-certified"
+            else ("supplier-neutral",)
+        ),
         capabilities=("domestic-l2-replay",),
         window_start="2026-07-01T00:00:00Z",
         window_end=(
@@ -366,6 +370,27 @@ def test_market_data_and_release_metadata_fail_closed_branches(tmp_path: Path) -
     mismatch = seal_certification(replace(certification, release_status="ga-ready"))
     assert "RELEASE_STATUS_MISMATCH" in _codes(mismatch, tmp_path)
 
+    noncanonical = seal_certification(
+        replace(
+            certification,
+            created_at="2026-06-01T00:00:00Z",
+            crypto_l2=replace(
+                certification.crypto_l2,
+                providers=("okx", "binance"),
+                capabilities=tuple(reversed(certification.crypto_l2.capabilities)),
+                continuous_days=31,
+            ),
+            ci=tuple(reversed(certification.ci)),
+        )
+    )
+    assert {
+        "CERTIFICATION_PREMATURE",
+        "MARKET_PROVIDERS_INVALID",
+        "MARKET_CAPABILITIES_INVALID",
+        "MARKET_CONTINUOUS_DAYS_MISMATCH",
+        "CI_PROJECTS_INCOMPLETE",
+    }.issubset(_codes(noncanonical, tmp_path))
+
 
 def test_domestic_market_certification_requires_30_days_and_capability(tmp_path: Path) -> None:
     certification = _certification(tmp_path, domestic_status="market-data-certified")
@@ -374,7 +399,7 @@ def test_domestic_market_certification_requires_30_days_and_capability(tmp_path:
             certification,
             domestic_l2=replace(
                 certification.domestic_l2,
-                providers=(),
+                providers=("supplier-neutral",),
                 capabilities=(),
                 window_end="2026-07-02T00:00:00Z",
                 continuous_days=1,
@@ -382,13 +407,21 @@ def test_domestic_market_certification_requires_30_days_and_capability(tmp_path:
         )
     )
     assert {
-        "MARKET_PROVIDERS_MISSING",
         "MARKET_CAPABILITIES_MISSING",
+        "DOMESTIC_PROVIDER_UNSPECIFIED",
         "DOMESTIC_CAPABILITIES_INCOMPLETE",
         "DOMESTIC_WINDOW_TOO_SHORT",
         "DOMESTIC_ELAPSED_WINDOW_TOO_SHORT",
     }.issubset(_codes(changed, tmp_path))
     assert not validate_m7_certification(changed, evidence_root=tmp_path).ga_ready
+
+    missing_provider = seal_certification(
+        replace(
+            certification,
+            domestic_l2=replace(certification.domestic_l2, providers=()),
+        )
+    )
+    assert "MARKET_PROVIDERS_MISSING" in _codes(missing_provider, tmp_path)
 
 
 def test_hash_timestamp_loader_and_writer_rejections(tmp_path: Path) -> None:
