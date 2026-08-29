@@ -1,6 +1,6 @@
 # quant-workspace
 
-Central path resolver and immutable `StackManifest 1.0.0` producer for the PureSaber quant multi-repo stack. It eliminates hard-coded sibling paths and freezes the exact Git, package, dependency, schema, and external-lock state consumed by releases.
+Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7Certification 1.0.0` verifier for the PureSaber quant multi-repo stack. It eliminates hard-coded sibling paths and freezes the exact Git, package, dependency, schema, performance, and market-data evidence consumed by releases.
 
 ## Install
 
@@ -17,6 +17,14 @@ quant-workspace --config configs/default.workspace.yaml lab-config --out ../quan
 quant-workspace --config configs/default.workspace.yaml stack-manifest --mode audit --out stack-manifest.json
 quant-workspace verify-stack stack-manifest.json
 ```
+
+M7认证必须额外提供规范化、内容寻址且可本地复验的认证清单：
+
+```bash
+quant-workspace verify-m7-certification validation-logs/m7/m7-certification.json
+```
+
+该门禁要求数据标准化和完整撮合＋账本各有3次独立的1000万事件运行，逐次检查吞吐、16GiB峰值RSS和产物确定性；同时要求Binance/OKX双源Crypto L2连续30天真实市场认证及Python3.10/3.11/3.12 CI。国内L2只有fixture时清单最多为`rc-ready`，取得合法真实数据并通过同类证据后才可为`ga-ready`。所有证据文件必须位于认证清单目录内、记录SHA-256且内容不可变。
 
 Set `QUANT_WORKSPACE_ROOT=D:/projects` to override the `root` field in YAML.
 
