@@ -100,3 +100,12 @@ def test_v2_release_workspace_has_exact_runtime_scope() -> None:
     assert all(
         project.repo == workspace.root / name for name, project in workspace.projects.items()
     )
+
+
+def test_release_lock_closes_python310_conditional_dependencies() -> None:
+    lock = (Path(__file__).resolve().parents[1] / "requirements.lock").read_text(encoding="utf-8")
+
+    assert "pip-compile with Python 3.10" in lock
+    assert "exceptiongroup==" in lock
+    assert "typing-extensions==" in lock
+    assert 'tomli==2.2.1 ; python_version < "3.11"' in lock

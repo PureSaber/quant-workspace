@@ -23,8 +23,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.lock
+          pip install --no-deps -r requirements.lock
+          pip check
           pip install -e . --no-deps --no-build-isolation
+          pip check
 
       - name: Ruff check
         run: ruff check src tests
