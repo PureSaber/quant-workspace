@@ -20,6 +20,19 @@ quant-workspace verify-stack stack-manifest.json
 
 Set `QUANT_WORKSPACE_ROOT=D:/projects` to override the `root` field in YAML.
 
+Rebuild the cross-version lock with Python 3.10 so conditional dependencies required by the
+oldest supported interpreter remain visible, then verify the lock as a closed dependency set:
+
+```bash
+python -m piptools compile --extra dev --build-deps-for editable \
+  --allow-unsafe --strip-extras --resolver backtracking \
+  --index-url https://pypi.org/simple --output-file requirements.lock pyproject.toml
+python -m pip install --no-deps -r requirements.lock
+python -m pip check
+python -m pip install -e . --no-deps --no-build-isolation
+python -m pip check
+```
+
 For the Cross-Asset & Multi-Frequency v2 release, use
 `configs/v2.release.workspace.yaml`. It contains exactly 14 runtime repositories and resolves its
 root relative to the checked-out sibling layout. Legacy or documentation-only projects remain in
