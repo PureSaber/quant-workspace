@@ -48,6 +48,28 @@ def _number(value: Any, field: str) -> float:
     return result
 
 
+def _string(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{field} must be a string")
+    return value
+
+
+def _object(value: Any, field: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise TypeError(f"{field} must be an object")
+    return value
+
+
+def _array(value: Any, field: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise TypeError(f"{field} must be an array")
+    return value
+
+
+def _string_array(value: Any, field: str) -> tuple[str, ...]:
+    return tuple(_string(item, f"{field} item") for item in _array(value, field))
+
+
 @dataclass(frozen=True)
 class EvidenceFile:
     path: str
@@ -59,7 +81,10 @@ class EvidenceFile:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> EvidenceFile:
         _exact_fields(payload, {"path", "sha256"}, "evidence")
-        return cls(path=str(payload["path"]), sha256=str(payload["sha256"]))
+        return cls(
+            path=_string(payload["path"], "evidence path"),
+            sha256=_string(payload["sha256"], "evidence sha256"),
+        )
 
 
 @dataclass(frozen=True)
@@ -91,7 +116,7 @@ class BenchmarkRun:
             events=_integer(payload["events"], "events"),
             events_per_second=_number(payload["events_per_second"], "events_per_second"),
             peak_rss_gib=_number(payload["peak_rss_gib"], "peak_rss_gib"),
-            artifact_sha256=str(payload["artifact_sha256"]),
+            artifact_sha256=_string(payload["artifact_sha256"], "artifact_sha256"),
         )
 
 
@@ -112,9 +137,12 @@ class BenchmarkEvidence:
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkEvidence:
         _exact_fields(payload, {"evidence", "measurement_scope", "runs"}, "benchmark")
         return cls(
-            evidence=EvidenceFile.from_dict(dict(payload["evidence"])),
-            measurement_scope=str(payload["measurement_scope"]),
-            runs=tuple(BenchmarkRun.from_dict(dict(item)) for item in payload["runs"]),
+            evidence=EvidenceFile.from_dict(_object(payload["evidence"], "benchmark evidence")),
+            measurement_scope=_string(payload["measurement_scope"], "measurement_scope"),
+            runs=tuple(
+                BenchmarkRun.from_dict(_object(item, "benchmark run"))
+                for item in _array(payload["runs"], "benchmark runs")
+            ),
         )
 
 
@@ -155,13 +183,13 @@ class MarketDataEvidence:
             "market data",
         )
         return cls(
-            status=str(payload["status"]),  # type: ignore[arg-type]
-            providers=tuple(str(item) for item in payload["providers"]),
-            capabilities=tuple(str(item) for item in payload["capabilities"]),
-            window_start=str(payload["window_start"]),
-            window_end=str(payload["window_end"]),
+            status=_string(payload["status"], "market status"),  # type: ignore[arg-type]
+            providers=_string_array(payload["providers"], "providers"),
+            capabilities=_string_array(payload["capabilities"], "capabilities"),
+            window_start=_string(payload["window_start"], "window_start"),
+            window_end=_string(payload["window_end"], "window_end"),
             continuous_days=_integer(payload["continuous_days"], "continuous_days"),
-            evidence=EvidenceFile.from_dict(dict(payload["evidence"])),
+            evidence=EvidenceFile.from_dict(_object(payload["evidence"], "market evidence")),
         )
 
 
@@ -190,11 +218,11 @@ class CIResult:
             "CI result",
         )
         return cls(
-            project=str(payload["project"]),
-            commit=str(payload["commit"]),
-            python_versions=tuple(str(item) for item in payload["python_versions"]),
-            status=str(payload["status"]),  # type: ignore[arg-type]
-            run_url=str(payload["run_url"]),
+            project=_string(payload["project"], "CI project"),
+            commit=_string(payload["commit"], "CI commit"),
+            python_versions=_string_array(payload["python_versions"], "CI python_versions"),
+            status=_string(payload["status"], "CI status"),  # type: ignore[arg-type]
+            run_url=_string(payload["run_url"], "CI run_url"),
         )
 
 
@@ -244,17 +272,26 @@ class M7Certification:
                 "M7 certification",
             )
             return cls(
-                schema_version=str(payload["schema_version"]),
-                created_at=str(payload["created_at"]),
+                schema_version=_string(payload["schema_version"], "schema_version"),
+                created_at=_string(payload["created_at"], "created_at"),
                 data_standardization=BenchmarkEvidence.from_dict(
-                    dict(payload["data_standardization"])
+                    _object(payload["data_standardization"], "data_standardization")
                 ),
-                execution_replay=BenchmarkEvidence.from_dict(dict(payload["execution_replay"])),
-                crypto_l2=MarketDataEvidence.from_dict(dict(payload["crypto_l2"])),
-                domestic_l2=MarketDataEvidence.from_dict(dict(payload["domestic_l2"])),
-                ci=tuple(CIResult.from_dict(dict(item)) for item in payload["ci"]),
-                release_status=str(payload["release_status"]),  # type: ignore[arg-type]
-                certification_sha256=str(payload["certification_sha256"]),
+                execution_replay=BenchmarkEvidence.from_dict(
+                    _object(payload["execution_replay"], "execution_replay")
+                ),
+                crypto_l2=MarketDataEvidence.from_dict(_object(payload["crypto_l2"], "crypto_l2")),
+                domestic_l2=MarketDataEvidence.from_dict(
+                    _object(payload["domestic_l2"], "domestic_l2")
+                ),
+                ci=tuple(
+                    CIResult.from_dict(_object(item, "CI result"))
+                    for item in _array(payload["ci"], "CI results")
+                ),
+                release_status=_string(payload["release_status"], "release_status"),  # type: ignore[arg-type]
+                certification_sha256=_string(
+                    payload["certification_sha256"], "certification_sha256"
+                ),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"Invalid M7Certification payload: {exc}") from exc
