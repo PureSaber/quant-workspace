@@ -1,10 +1,10 @@
 __pycache__/
 *.py[cod]
-.venv/
+.venv*/
 .pytest_cache/
 .ruff_cache/
 .coverage
-coverage.json
+coverage*.json
 *.egg-info/
 dist/
 build/

@@ -1,0 +1,58 @@
+# Cross-Asset & Multi-Frequency v2 runtime release scope.
+# The config lives in quant-workspace/configs, so ../.. resolves to the sibling-repository root.
+
+root: ../..
+
+projects:
+  a-share-multifactor:
+    repo: a-share-multifactor
+    outputs: outputs
+
+  quant-agent:
+    repo: quant-agent
+
+  quant-crypto-basis:
+    repo: quant-crypto-basis
+    outputs: outputs
+
+  quant-data-kit:
+    repo: quant-data-kit
+    data: data
+
+  quant-execution:
+    repo: quant-execution
+
+  quant-factors:
+    repo: quant-factors
+    data: data
+
+  quant-futures-spread:
+    repo: quant-futures-spread
+    outputs: output
+
+  quant-lab:
+    repo: quant-lab
+    state: state
+
+  quant-paper-sim:
+    repo: quant-paper-sim
+    state: state
+
+  quant-pipeline:
+    repo: quant-pipeline
+    state: state
+
+  quant-portfolio:
+    repo: quant-portfolio
+    state: state
+
+  quant-report-hub:
+    repo: quant-report-hub
+    reports: reports
+
+  quant-risk-monitor:
+    repo: quant-risk-monitor
+    state: state
+
+  quant-workspace:
+    repo: quant-workspace
