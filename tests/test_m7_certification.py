@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from dataclasses import replace
 from pathlib import Path
+from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
 import pytest
 
+import quant_workspace.m7_certification as certification_module
 from quant_workspace.cli import main
 from quant_workspace.m7_certification import (
     M7_CERTIFICATION_SCHEMA_VERSION,
     BenchmarkEvidence,
     BenchmarkRun,
     CIResult,
+    EvidenceArtifact,
     EvidenceFile,
     M7Certification,
     MarketDataEvidence,
@@ -22,6 +26,9 @@ from quant_workspace.m7_certification import (
     validate_m7_certification,
     write_m7_certification,
 )
+
+_ARTIFACT_ARCHIVES: dict[int, bytes] = {}
+_ARTIFACT_RECORDS: dict[int, dict] = {}
 
 
 def _json_evidence(root: Path, name: str, payload: dict) -> EvidenceFile:
@@ -37,6 +44,37 @@ def _json_evidence(root: Path, name: str, payload: dict) -> EvidenceFile:
         + b"\n"
     )
     return EvidenceFile(name, hashlib.sha256(path.read_bytes()).hexdigest())
+
+
+def _artifact_binding(
+    root: Path,
+    *,
+    evidence: EvidenceFile,
+    label: str,
+    artifact_id: int,
+    project: str,
+    run_id: int,
+    commit: str,
+) -> EvidenceArtifact:
+    output = io.BytesIO()
+    entry = ZipInfo("evidence.json", date_time=(1980, 1, 1, 0, 0, 0))
+    entry.compress_type = ZIP_STORED
+    with ZipFile(output, "w") as bundle:
+        bundle.writestr(entry, (root / evidence.path).read_bytes())
+    archive = output.getvalue()
+    archive_sha256 = hashlib.sha256(archive).hexdigest()
+    _ARTIFACT_ARCHIVES[artifact_id] = archive
+    _ARTIFACT_RECORDS[artifact_id] = {
+        "id": artifact_id,
+        "name": f"puresaber-m7-{label}-evidence",
+        "expired": False,
+        "digest": f"sha256:{archive_sha256}",
+        "archive_download_url": (
+            f"https://api.github.com/repos/PureSaber/{project}/actions/artifacts/{artifact_id}/zip"
+        ),
+        "workflow_run": {"id": run_id, "head_sha": commit},
+    }
+    return EvidenceArtifact(label, artifact_id, archive_sha256)
 
 
 def _benchmark(
@@ -152,10 +190,20 @@ def _market(
 
 @pytest.fixture(autouse=True)
 def _trusted_github_api(monkeypatch) -> None:
+    _ARTIFACT_ARCHIVES.clear()
+    _ARTIFACT_RECORDS.clear()
+
     def fake_github_json(url: str) -> dict:
         run_part = url.split("/actions/runs/", 1)[1]
         run_id = int(run_part.split("/", 1)[0])
         project = url.split("/repos/PureSaber/", 1)[1].split("/", 1)[0]
+        if "/artifacts?" in url:
+            artifacts = [
+                record
+                for record in _ARTIFACT_RECORDS.values()
+                if record["workflow_run"]["id"] == run_id
+            ]
+            return {"total_count": len(artifacts), "artifacts": artifacts}
         if "/jobs?" in url:
             jobs = [
                 {"name": f"test ({version})", "status": "completed", "conclusion": "success"}
@@ -167,12 +215,18 @@ def _trusted_github_api(monkeypatch) -> None:
             "html_url": f"https://github.com/PureSaber/{project}/actions/runs/{run_id}",
             "repository": {"full_name": f"PureSaber/{project}"},
             "head_sha": str(run_id) * 40,
+            "path": ".github/workflows/m7-certification.yml",
+            "run_attempt": 1,
             "status": "completed",
             "conclusion": "success",
             "event": "push",
         }
 
     monkeypatch.setattr("quant_workspace.m7_certification._github_json", fake_github_json)
+    monkeypatch.setattr(
+        "quant_workspace.m7_certification._github_bytes",
+        lambda url: _ARTIFACT_ARCHIVES[int(url.split("/artifacts/", 1)[1].split("/", 1)[0])],
+    )
 
 
 def _certification(root: Path, *, domestic_status: str = "fixture-certified") -> M7Certification:
@@ -246,17 +300,64 @@ def _certification(root: Path, *, domestic_status: str = "fixture-certified") ->
         ),
         commit=data_commit,
     )
-    ci = tuple(
+    data_artifacts = tuple(
+        _artifact_binding(
+            root,
+            evidence=evidence,
+            label=label,
+            artifact_id=artifact_id,
+            project="quant-data-kit",
+            run_id=1,
+            commit=data_commit,
+        )
+        for label, evidence, artifact_id in (
+            ("data_standardization", data.evidence, 101),
+            ("crypto_l2", crypto.evidence, 102),
+            ("domestic_l2", domestic.evidence, 103),
+        )
+    )
+    execution_artifacts = (
+        _artifact_binding(
+            root,
+            evidence=execution.evidence,
+            label="execution_replay",
+            artifact_id=201,
+            project="quant-execution",
+            run_id=2,
+            commit=execution_commit,
+        ),
+    )
+    ci = (
         CIResult(
-            project=project,
-            commit=str(index) * 40,
+            project="quant-data-kit",
+            commit=data_commit,
             python_versions=("3.10", "3.11", "3.12"),
             status="success",
-            run_url=f"https://github.com/PureSaber/{project}/actions/runs/{index}",
-        )
-        for index, project in enumerate(
-            ("quant-data-kit", "quant-execution", "quant-workspace"), start=1
-        )
+            run_url="https://github.com/PureSaber/quant-data-kit/actions/runs/1",
+            workflow_path=".github/workflows/m7-certification.yml",
+            run_attempt=1,
+            evidence_artifacts=data_artifacts,
+        ),
+        CIResult(
+            project="quant-execution",
+            commit=execution_commit,
+            python_versions=("3.10", "3.11", "3.12"),
+            status="success",
+            run_url="https://github.com/PureSaber/quant-execution/actions/runs/2",
+            workflow_path=".github/workflows/m7-certification.yml",
+            run_attempt=1,
+            evidence_artifacts=execution_artifacts,
+        ),
+        CIResult(
+            project="quant-workspace",
+            commit="3" * 40,
+            python_versions=("3.10", "3.11", "3.12"),
+            status="success",
+            run_url="https://github.com/PureSaber/quant-workspace/actions/runs/3",
+            workflow_path=".github/workflows/m7-certification.yml",
+            run_attempt=1,
+            evidence_artifacts=(),
+        ),
     )
     return seal_certification(
         M7Certification(
@@ -412,6 +513,35 @@ def test_rehashed_arbitrary_or_semantically_mismatched_evidence_fails(tmp_path: 
     )
     assert "EVIDENCE_SCHEMA_INVALID" in _codes(changed, tmp_path)
     assert not validate_m7_certification(changed, evidence_root=tmp_path).rc_ready
+
+
+def test_coordinated_evidence_and_manifest_forgery_cannot_borrow_a_ci_run(
+    tmp_path: Path,
+) -> None:
+    certification = _certification(tmp_path, domestic_status="market-data-certified")
+    path = tmp_path / "data.json"
+    payload = json.loads(path.read_bytes())
+    payload["measurement_scope"] = "fabricated self-report with no benchmark execution"
+    payload["runs"] = [
+        {**run, "events_per_second": 999_999.0, "peak_rss_gib": 1.0} for run in payload["runs"]
+    ]
+    forged_evidence = _json_evidence(tmp_path, "data.json", payload)
+    forged_runs = tuple(BenchmarkRun.from_dict(run) for run in payload["runs"])
+    forged = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(
+                certification.data_standardization,
+                evidence=forged_evidence,
+                measurement_scope=payload["measurement_scope"],
+                runs=forged_runs,
+            ),
+        )
+    )
+
+    result = validate_m7_certification(forged, evidence_root=tmp_path)
+    assert "CI_EVIDENCE_ATTESTATION_MISMATCH" in {item.code for item in result.issues}
+    assert not result.valid and not result.rc_ready and not result.ga_ready
 
 
 @pytest.mark.parametrize(
@@ -600,6 +730,78 @@ def test_remote_ci_transport_invalid_jobs_and_failed_job_fail_closed(
 
     monkeypatch.setattr("quant_workspace.m7_certification._github_json", failed_job)
     assert "CI_REMOTE_JOB_FAILED" in _codes(certification, tmp_path)
+
+
+def test_ci_evidence_attestation_metadata_and_archive_fail_closed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    certification = _certification(tmp_path)
+    missing = seal_certification(
+        replace(
+            certification,
+            ci=(
+                replace(
+                    certification.ci[0],
+                    evidence_artifacts=certification.ci[0].evidence_artifacts[:2],
+                ),
+                *certification.ci[1:],
+            ),
+        )
+    )
+    assert "CI_EVIDENCE_BINDINGS_INCOMPLETE" in _codes(missing, tmp_path)
+
+    invalid_identity = seal_certification(
+        replace(
+            certification,
+            ci=(
+                replace(certification.ci[0], workflow_path=".github/workflows/ci.yml"),
+                *certification.ci[1:],
+            ),
+        )
+    )
+    assert {
+        "CI_REMOTE_RUN_MISMATCH",
+        "CI_ATTESTATION_IDENTITY_INVALID",
+    }.issubset(_codes(invalid_identity, tmp_path))
+
+    _ARTIFACT_RECORDS[101]["expired"] = True
+    assert "CI_EVIDENCE_ATTESTATION_MISMATCH" in _codes(certification, tmp_path)
+    _ARTIFACT_RECORDS[101]["expired"] = False
+
+    invalid_archive = b"not-a-zip-archive"
+    invalid_archive_sha256 = hashlib.sha256(invalid_archive).hexdigest()
+    _ARTIFACT_ARCHIVES[101] = invalid_archive
+    _ARTIFACT_RECORDS[101]["digest"] = f"sha256:{invalid_archive_sha256}"
+    invalid_bundle = seal_certification(
+        replace(
+            certification,
+            ci=(
+                replace(
+                    certification.ci[0],
+                    evidence_artifacts=(
+                        replace(
+                            certification.ci[0].evidence_artifacts[0],
+                            archive_sha256=invalid_archive_sha256,
+                        ),
+                        *certification.ci[0].evidence_artifacts[1:],
+                    ),
+                ),
+                *certification.ci[1:],
+            ),
+        )
+    )
+    assert "CI_EVIDENCE_ATTESTATION_MISMATCH" in _codes(invalid_bundle, tmp_path)
+
+    trusted_github_json = certification_module._github_json
+
+    def artifact_api_offline(url: str) -> dict:
+        if "/artifacts?" in url:
+            raise OSError("artifact API offline")
+        return trusted_github_json(url)
+
+    monkeypatch.setattr(certification_module, "_github_json", artifact_api_offline)
+    assert "CI_EVIDENCE_ATTESTATION_FAILED" in _codes(certification, tmp_path)
 
 
 def test_write_load_cli_and_no_clobber(tmp_path: Path, capsys) -> None:

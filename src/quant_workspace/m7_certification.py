@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import os
@@ -14,6 +15,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
+from zipfile import BadZipFile, ZipFile
 
 from quant_workspace.stack_manifest import ValidationIssue
 
@@ -27,8 +29,15 @@ _REQUIRED_DOMESTIC_CAPABILITIES = frozenset({"domestic-l2-replay"})
 _REQUIRED_CI_PROJECTS = frozenset({"quant-data-kit", "quant-execution", "quant-workspace"})
 _REQUIRED_CI_PROJECT_ORDER = ("quant-data-kit", "quant-execution", "quant-workspace")
 _REQUIRED_PYTHONS = ("3.10", "3.11", "3.12")
+_REQUIRED_M7_WORKFLOW_PATH = ".github/workflows/m7-certification.yml"
+_REQUIRED_EVIDENCE_BY_PROJECT = {
+    "quant-data-kit": ("data_standardization", "crypto_l2", "domestic_l2"),
+    "quant-execution": ("execution_replay",),
+    "quant-workspace": (),
+}
 _BENCHMARK_EVIDENCE_SCHEMA = "puresaber.m7-benchmark-evidence@1.0.0"
 _MARKET_EVIDENCE_SCHEMA = "puresaber.m7-market-data-evidence@1.0.0"
+_MAX_EVIDENCE_BYTES = 10 * 1024 * 1024
 _GITHUB_RUN_URL = re.compile(
     r"^https://github\.com/PureSaber/(?P<project>[a-z0-9-]+)/actions/runs/(?P<run_id>[1-9][0-9]*)$"
 )
@@ -236,12 +245,38 @@ class MarketDataEvidence:
 
 
 @dataclass(frozen=True)
+class EvidenceArtifact:
+    label: str
+    artifact_id: int
+    archive_sha256: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "artifact_id": self.artifact_id,
+            "archive_sha256": self.archive_sha256,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> EvidenceArtifact:
+        _exact_fields(payload, {"label", "artifact_id", "archive_sha256"}, "evidence artifact")
+        return cls(
+            label=_string(payload["label"], "evidence artifact label"),
+            artifact_id=_integer(payload["artifact_id"], "evidence artifact id"),
+            archive_sha256=_string(payload["archive_sha256"], "evidence artifact archive_sha256"),
+        )
+
+
+@dataclass(frozen=True)
 class CIResult:
     project: str
     commit: str
     python_versions: tuple[str, ...]
     status: Literal["success", "failure"]
     run_url: str
+    workflow_path: str
+    run_attempt: int
+    evidence_artifacts: tuple[EvidenceArtifact, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -250,13 +285,25 @@ class CIResult:
             "python_versions": list(self.python_versions),
             "status": self.status,
             "run_url": self.run_url,
+            "workflow_path": self.workflow_path,
+            "run_attempt": self.run_attempt,
+            "evidence_artifacts": [item.to_dict() for item in self.evidence_artifacts],
         }
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> CIResult:
         _exact_fields(
             payload,
-            {"project", "commit", "python_versions", "status", "run_url"},
+            {
+                "project",
+                "commit",
+                "python_versions",
+                "status",
+                "run_url",
+                "workflow_path",
+                "run_attempt",
+                "evidence_artifacts",
+            },
             "CI result",
         )
         return cls(
@@ -265,6 +312,12 @@ class CIResult:
             python_versions=_string_array(payload["python_versions"], "CI python_versions"),
             status=_string(payload["status"], "CI status"),  # type: ignore[arg-type]
             run_url=_string(payload["run_url"], "CI run_url"),
+            workflow_path=_string(payload["workflow_path"], "CI workflow_path"),
+            run_attempt=_integer(payload["run_attempt"], "CI run_attempt"),
+            evidence_artifacts=tuple(
+                EvidenceArtifact.from_dict(_object(item, "evidence artifact"))
+                for item in _array(payload["evidence_artifacts"], "CI evidence_artifacts")
+            ),
         )
 
 
@@ -720,15 +773,7 @@ def _market_issues(
 
 
 def _github_json(url: str) -> dict[str, Any]:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "PureSaber-quant-workspace-m7-verifier",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    request = urllib.request.Request(url, headers=headers)
+    request = urllib.request.Request(url, headers=_github_headers())
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read())
     if not isinstance(payload, dict):
@@ -736,7 +781,73 @@ def _github_json(url: str) -> dict[str, Any]:
     return payload
 
 
-def _github_ci_issues(item: CIResult) -> list[ValidationIssue]:
+def _github_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "PureSaber-quant-workspace-m7-verifier",
+        "X-GitHub-Api-Version": "2026-03-10",
+    }
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _github_bytes(url: str) -> bytes:
+    request = urllib.request.Request(url, headers=_github_headers())
+    with urllib.request.urlopen(request, timeout=30) as response:
+        body = response.read(_MAX_EVIDENCE_BYTES + 1)
+    if len(body) > _MAX_EVIDENCE_BYTES:
+        raise ValueError("GitHub evidence artifact exceeds the size limit")
+    return body
+
+
+def _bound_evidence_body(evidence: EvidenceFile, evidence_root: Path | None) -> bytes | None:
+    if evidence_root is None or not _SHA256.fullmatch(evidence.sha256):
+        return None
+    relative = PurePosixPath(evidence.path)
+    if not evidence.path or relative.is_absolute() or ".." in relative.parts:
+        return None
+    root = evidence_root.resolve()
+    candidate = (root / Path(*relative.parts)).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    try:
+        body = candidate.read_bytes()
+    except OSError:
+        return None
+    if len(body) > _MAX_EVIDENCE_BYTES or hashlib.sha256(body).hexdigest() != evidence.sha256:
+        return None
+    return body
+
+
+def _artifact_evidence_body(archive: bytes) -> bytes:
+    try:
+        with ZipFile(io.BytesIO(archive)) as bundle:
+            entries = bundle.infolist()
+            if (
+                len(entries) != 1
+                or entries[0].is_dir()
+                or PurePosixPath(entries[0].filename) != PurePosixPath("evidence.json")
+                or entries[0].file_size > _MAX_EVIDENCE_BYTES
+            ):
+                raise ValueError("evidence artifact must contain only evidence.json")
+            body = bundle.read(entries[0])
+    except (BadZipFile, RuntimeError) as exc:
+        raise ValueError("evidence artifact is not a valid ZIP archive") from exc
+    if len(body) > _MAX_EVIDENCE_BYTES:
+        raise ValueError("evidence artifact entry exceeds the size limit")
+    return body
+
+
+def _github_ci_issues(
+    item: CIResult,
+    *,
+    expected_evidence: dict[str, EvidenceFile],
+    evidence_root: Path | None,
+) -> list[ValidationIssue]:
     match = _GITHUB_RUN_URL.fullmatch(item.run_url)
     if match is None or match.group("project") != item.project:
         return [ValidationIssue("error", "CI_URL_INVALID", item.project)]
@@ -755,6 +866,8 @@ def _github_ci_issues(item: CIResult) -> list[ValidationIssue]:
         or run.get("html_url") != item.run_url
         or repository_name != f"PureSaber/{item.project}"
         or run.get("head_sha") != item.commit
+        or run.get("path") != item.workflow_path
+        or run.get("run_attempt") != item.run_attempt
         or run.get("status") != "completed"
         or run.get("conclusion") != "success"
         or run.get("event") not in {"push", "pull_request", "workflow_dispatch"}
@@ -776,6 +889,82 @@ def _github_ci_issues(item: CIResult) -> list[ValidationIssue]:
         job.get("status") != "completed" or job.get("conclusion") != "success" for job in matched
     ):
         issues.append(ValidationIssue("error", "CI_REMOTE_JOB_FAILED", item.project))
+    required_labels = _REQUIRED_EVIDENCE_BY_PROJECT.get(item.project, ())
+    declared_labels = tuple(binding.label for binding in item.evidence_artifacts)
+    if declared_labels != required_labels:
+        issues.append(ValidationIssue("error", "CI_EVIDENCE_BINDINGS_INCOMPLETE", item.project))
+        return issues
+    if (
+        item.workflow_path != _REQUIRED_M7_WORKFLOW_PATH
+        or item.run_attempt <= 0
+        or len({binding.artifact_id for binding in item.evidence_artifacts})
+        != len(item.evidence_artifacts)
+    ):
+        issues.append(ValidationIssue("error", "CI_ATTESTATION_IDENTITY_INVALID", item.project))
+        return issues
+    if not required_labels:
+        return issues
+    try:
+        artifacts = _github_json(f"{api_root}/artifacts?per_page=100")
+    except (OSError, TypeError, ValueError, urllib.error.URLError, json.JSONDecodeError) as exc:
+        issues.append(
+            ValidationIssue("error", "CI_EVIDENCE_ATTESTATION_FAILED", f"{item.project}: {exc}")
+        )
+        return issues
+    raw_artifacts = artifacts.get("artifacts")
+    if not isinstance(raw_artifacts, list) or artifacts.get("total_count") != len(raw_artifacts):
+        issues.append(ValidationIssue("error", "CI_EVIDENCE_ARTIFACTS_INVALID", item.project))
+        return issues
+    by_id = {
+        artifact.get("id"): artifact
+        for artifact in raw_artifacts
+        if isinstance(artifact, dict) and isinstance(artifact.get("id"), int)
+    }
+    for binding in item.evidence_artifacts:
+        expected_file = expected_evidence.get(binding.label)
+        local_body = (
+            _bound_evidence_body(expected_file, evidence_root)
+            if expected_file is not None
+            else None
+        )
+        artifact = by_id.get(binding.artifact_id)
+        expected_name = f"puresaber-m7-{binding.label}-evidence"
+        expected_download = (
+            f"https://api.github.com/repos/PureSaber/{item.project}/actions/artifacts/"
+            f"{binding.artifact_id}/zip"
+        )
+        workflow_run = artifact.get("workflow_run") if isinstance(artifact, dict) else None
+        if (
+            local_body is None
+            or artifact is None
+            or binding.artifact_id <= 0
+            or not _SHA256.fullmatch(binding.archive_sha256)
+            or artifact.get("name") != expected_name
+            or artifact.get("expired") is not False
+            or artifact.get("digest") != f"sha256:{binding.archive_sha256}"
+            or artifact.get("archive_download_url") != expected_download
+            or not isinstance(workflow_run, dict)
+            or workflow_run.get("id") != run_id
+            or workflow_run.get("head_sha") != item.commit
+        ):
+            issues.append(
+                ValidationIssue("error", "CI_EVIDENCE_ATTESTATION_MISMATCH", binding.label)
+            )
+            continue
+        try:
+            archive = _github_bytes(expected_download)
+            if hashlib.sha256(archive).hexdigest() != binding.archive_sha256:
+                raise ValueError("artifact archive digest changed")
+            if _artifact_evidence_body(archive) != local_body:
+                raise ValueError("artifact evidence differs from the certification evidence")
+        except (OSError, TypeError, ValueError, urllib.error.URLError) as exc:
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    "CI_EVIDENCE_ATTESTATION_MISMATCH",
+                    f"{binding.label}: {exc}",
+                )
+            )
     return issues
 
 
@@ -786,6 +975,17 @@ def validate_m7_certification(
 ) -> M7ValidationResult:
     issues: list[ValidationIssue] = []
     ci_commits = {item.project: item.commit for item in certification.ci}
+    evidence_by_project = {
+        "quant-data-kit": {
+            "data_standardization": certification.data_standardization.evidence,
+            "crypto_l2": certification.crypto_l2.evidence,
+            "domestic_l2": certification.domestic_l2.evidence,
+        },
+        "quant-execution": {
+            "execution_replay": certification.execution_replay.evidence,
+        },
+        "quant-workspace": {},
+    }
     if certification.schema_version != M7_CERTIFICATION_SCHEMA_VERSION:
         issues.append(ValidationIssue("error", "SCHEMA_VERSION_INVALID", "M7 certification"))
     created_at = _timestamp(certification.created_at)
@@ -853,7 +1053,13 @@ def validate_m7_certification(
             issues.append(ValidationIssue("error", "CI_PYTHON_MATRIX_INCOMPLETE", item.project))
         if item.status != "success":
             issues.append(ValidationIssue("error", "CI_FAILED", item.project))
-        issues.extend(_github_ci_issues(item))
+        issues.extend(
+            _github_ci_issues(
+                item,
+                expected_evidence=evidence_by_project.get(item.project, {}),
+                evidence_root=evidence_root,
+            )
+        )
     errors = [issue for issue in issues if issue.severity == "error"]
     rc_ready = not errors
     ga_ready = rc_ready and certification.domestic_l2.status == "market-data-certified"
