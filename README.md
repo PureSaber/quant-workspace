@@ -24,7 +24,11 @@ M7认证必须额外提供规范化、内容寻址且可本地复验的认证清
 quant-workspace verify-m7-certification validation-logs/m7/m7-certification.json
 ```
 
-该门禁要求数据标准化和完整撮合＋账本各有3次独立的1000万事件运行，逐次检查吞吐、16GiB峰值RSS和产物确定性；同时要求Binance/OKX双源Crypto L2连续30天真实市场认证及Python3.10/3.11/3.12 CI。国内L2只有fixture时清单最多为`rc-ready`，取得合法真实数据并通过同类证据后才可为`ga-ready`。所有证据文件必须位于认证清单目录内、记录SHA-256且内容不可变。
+该门禁要求数据标准化和完整撮合＋账本各有3次独立的1000万事件运行，逐次检查吞吐、16GiB峰值RSS和产物确定性；同时要求Binance/OKX双源Crypto L2连续30天真实市场认证及Python3.10/3.11/3.12 CI。国内L2只有fixture时清单最多为`rc-ready`，取得合法真实数据并通过同类证据后才可为`ga-ready`。
+
+证据文件必须位于认证清单目录内、记录SHA-256、使用canonical JSON和闭合Schema。性能证据使用`puresaber.m7-benchmark-evidence@1.0.0`，必须把项目、源码commit、dirty状态、计时范围、三次指标及全部正确性断言与认证清单逐字段绑定。市场证据使用`puresaber.m7-market-data-evidence@1.0.0`，必须绑定来源commit、状态、供应商、能力、窗口、冻结stream集合、质量计数和归档恢复结果。哈希正确但内容为任意文本、Schema漂移或声明不一致时一律失败。
+
+CI结果不信任认证清单中的自报字符串。验证器从严格的GitHub Actions运行URL提取run ID，并通过GitHub API核对仓库、事件、精确`head_sha`、总体结论以及Python3.10/3.11/3.12三个成功job。公开仓库可匿名核验；设置`GH_TOKEN`或`GITHUB_TOKEN`可避免API限流。无法联网、运行不匹配或job不完整时均fail closed。
 
 Set `QUANT_WORKSPACE_ROOT=D:/projects` to override the `root` field in YAML.
 
