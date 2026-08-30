@@ -1,0 +1,63 @@
+name: M7 Certification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install --no-deps -r requirements.lock
+          pip check
+          pip install -e . --no-deps --no-build-isolation
+          pip check
+
+      - name: Ruff check
+        run: ruff check src tests
+
+      - name: Ruff format
+        run: ruff format --check src tests
+
+      - name: Pytest
+        run: >-
+          pytest -q --cov=quant_workspace --cov-branch --cov-report=term-missing
+          --cov-report=json:coverage.json --cov-fail-under=80
+
+      - name: Core contract coverage
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+
+          report = json.load(open("coverage.json", encoding="utf-8"))
+          for module in ("stack_manifest.py", "m7_certification.py"):
+              path = next(
+                  key
+                  for key in report["files"]
+                  if key.replace(chr(92), "/").endswith(f"quant_workspace/{module}")
+              )
+              summary = report["files"][path]["summary"]
+              covered = summary["covered_branches"]
+              total = summary["num_branches"]
+              ratio = covered / total if total else 1.0
+              print(f"{module} pure branch coverage: {covered}/{total} = {ratio:.2%}")
+              if ratio < 0.90:
+                  raise SystemExit(f"{module} pure branch coverage must be >= 90%")
+          PY
