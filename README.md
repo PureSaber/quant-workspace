@@ -28,7 +28,7 @@ quant-workspace verify-m7-certification validation-logs/m7/m7-certification.json
 
 证据文件必须位于认证清单目录内、记录SHA-256、使用canonical JSON和闭合Schema。性能证据使用`puresaber.m7-benchmark-evidence@1.0.0`，必须把项目、源码commit、dirty状态、计时范围、三次指标及全部正确性断言与认证清单逐字段绑定。市场证据使用`puresaber.m7-market-data-evidence@1.0.0`，必须绑定来源commit、状态、供应商、能力、窗口、冻结stream集合、质量计数和归档恢复结果。哈希正确但内容为任意文本、Schema漂移或声明不一致时一律失败。
 
-CI结果不信任认证清单中的自报字符串。验证器从严格的GitHub Actions运行URL提取run ID，并通过GitHub API核对仓库、固定M7工作流路径、run attempt、事件、精确`head_sha`、总体结论以及Python3.10/3.11/3.12三个成功job。每份性能和市场证据还必须由该精确run上传为独立GitHub Actions artifact；认证清单记录artifact ID及archive SHA-256，验证器在线核对artifact所属run、commit、名称、未过期状态和GitHub摘要，下载ZIP后只接受唯一的`evidence.json`且必须与本地证据逐字节一致。这样即使同时重写证据与清单并重新计算全部哈希，也不能借用无关的成功CI。公开仓库的运行元数据可匿名核验；artifact下载通常需要`GH_TOKEN`或`GITHUB_TOKEN`。无法联网、artifact缺失/过期、工作流或运行不匹配、job不完整及摘要不一致时均fail closed。
+CI结果不信任认证清单中的自报字符串。验证器从严格的GitHub Actions运行URL提取run ID，并通过GitHub API核对仓库、固定M7工作流路径、run attempt、事件、精确`head_sha`、总体结论以及Python3.10/3.11/3.12三个成功job。每份性能和市场证据还必须由该精确run上传为名称绑定run attempt的独立GitHub Actions artifact；认证清单记录artifact ID及archive SHA-256，验证器在线核对artifact所属run、commit、名称、未过期状态和GitHub摘要，下载ZIP后只接受唯一的`evidence.json`且必须与本地证据逐字节一致。这样即使同时重写证据与清单并重新计算全部哈希，也不能借用无关的成功CI或其他attempt的产物。公开仓库的运行元数据可匿名核验；artifact下载通常需要`GH_TOKEN`或`GITHUB_TOKEN`。无法联网、artifact缺失/过期、工作流或运行不匹配、job不完整及摘要不一致时均fail closed。
 
 Set `QUANT_WORKSPACE_ROOT=D:/projects` to override the `root` field in YAML.
 

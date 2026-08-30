@@ -928,7 +928,7 @@ def _github_ci_issues(
             else None
         )
         artifact = by_id.get(binding.artifact_id)
-        expected_name = f"puresaber-m7-{binding.label}-evidence"
+        expected_name = f"puresaber-m7-{binding.label}-attempt-{item.run_attempt}-evidence"
         expected_download = (
             f"https://api.github.com/repos/PureSaber/{item.project}/actions/artifacts/"
             f"{binding.artifact_id}/zip"

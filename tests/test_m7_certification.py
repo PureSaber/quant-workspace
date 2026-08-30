@@ -66,7 +66,7 @@ def _artifact_binding(
     _ARTIFACT_ARCHIVES[artifact_id] = archive
     _ARTIFACT_RECORDS[artifact_id] = {
         "id": artifact_id,
-        "name": f"puresaber-m7-{label}-evidence",
+        "name": f"puresaber-m7-{label}-attempt-1-evidence",
         "expired": False,
         "digest": f"sha256:{archive_sha256}",
         "archive_download_url": (
