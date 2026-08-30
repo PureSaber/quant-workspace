@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from quant_workspace.loader import load_workspace
+from quant_workspace.m7_certification import load_m7_certification, validate_m7_certification
 from quant_workspace.stack_manifest import (
     StackManifestReleaseError,
     discover_stack,
@@ -101,6 +102,18 @@ def cmd_verify_stack(args: argparse.Namespace) -> int:
     return 0 if result.valid else 2
 
 
+def cmd_verify_m7_certification(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    try:
+        certification = load_m7_certification(path)
+    except (TypeError, ValueError) as exc:
+        print(json.dumps({"valid": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    result = validate_m7_certification(certification, evidence_root=path.parent)
+    print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+    return 0 if result.valid else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="quant-workspace", description="Resolve quant stack paths")
     p.add_argument("--config", default=str(_default_config()), dest="config")
@@ -134,6 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify.add_argument("path")
     verify.set_defaults(func=cmd_verify_stack)
+
+    m7 = sub.add_parser(
+        "verify-m7-certification",
+        help="Verify canonical M7 performance, CI, and market-data evidence",
+    )
+    m7.add_argument("path")
+    m7.set_defaults(func=cmd_verify_m7_certification)
     return p
 
 

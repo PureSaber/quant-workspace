@@ -1,6 +1,23 @@
 """Central workspace path resolver for the PureSaber quant stack."""
 
 from quant_workspace.loader import Workspace, load_workspace, resolve_path
+from quant_workspace.m7_certification import (
+    M7_CERTIFICATION_SCHEMA_VERSION,
+    BenchmarkEvidence,
+    BenchmarkRun,
+    CIResult,
+    EvidenceArtifact,
+    EvidenceFile,
+    M7Certification,
+    M7ValidationResult,
+    MarketDataEvidence,
+    canonical_certification_bytes,
+    certification_hash,
+    load_m7_certification,
+    seal_certification,
+    validate_m7_certification,
+    write_m7_certification,
+)
 from quant_workspace.stack_manifest import (
     STACK_MANIFEST_SCHEMA_VERSION,
     StackManifest,
@@ -13,15 +30,30 @@ from quant_workspace.stack_manifest import (
 )
 
 __all__ = [
+    "M7_CERTIFICATION_SCHEMA_VERSION",
     "STACK_MANIFEST_SCHEMA_VERSION",
+    "BenchmarkEvidence",
+    "BenchmarkRun",
+    "CIResult",
+    "EvidenceArtifact",
+    "EvidenceFile",
+    "M7Certification",
+    "M7ValidationResult",
+    "MarketDataEvidence",
     "StackManifest",
     "StackManifestReleaseError",
     "ValidationResult",
     "Workspace",
+    "canonical_certification_bytes",
+    "certification_hash",
     "discover_stack",
+    "load_m7_certification",
     "load_stack_manifest",
     "load_workspace",
     "resolve_path",
+    "seal_certification",
+    "validate_m7_certification",
     "validate_stack_manifest",
+    "write_m7_certification",
     "write_stack_manifest",
 ]
