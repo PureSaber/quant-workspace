@@ -8,6 +8,8 @@ import math
 import os
 import re
 import tempfile
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -25,6 +27,39 @@ _REQUIRED_DOMESTIC_CAPABILITIES = frozenset({"domestic-l2-replay"})
 _REQUIRED_CI_PROJECTS = frozenset({"quant-data-kit", "quant-execution", "quant-workspace"})
 _REQUIRED_CI_PROJECT_ORDER = ("quant-data-kit", "quant-execution", "quant-workspace")
 _REQUIRED_PYTHONS = ("3.10", "3.11", "3.12")
+_BENCHMARK_EVIDENCE_SCHEMA = "puresaber.m7-benchmark-evidence@1.0.0"
+_MARKET_EVIDENCE_SCHEMA = "puresaber.m7-market-data-evidence@1.0.0"
+_GITHUB_RUN_URL = re.compile(
+    r"^https://github\.com/PureSaber/(?P<project>[a-z0-9-]+)/actions/runs/(?P<run_id>[1-9][0-9]*)$"
+)
+_REQUIRED_CRYPTO_STREAMS = (
+    "binance:spot:BTCUSDT",
+    "binance:spot:ETHUSDT",
+    "binance:usdt-perpetual:BTCUSDT",
+    "binance:usdt-perpetual:ETHUSDT",
+    "okx:spot:BTC-USDT",
+    "okx:spot:ETH-USDT",
+    "okx:usdt-perpetual:BTC-USDT-SWAP",
+    "okx:usdt-perpetual:ETH-USDT-SWAP",
+)
+_DATA_ASSERTIONS = {
+    "accepted_all",
+    "quarantine_zero",
+    "strict_reload",
+    "deterministic_artifacts",
+    "pit_passed",
+    "l2_checkpoints_match",
+    "artifacts_retained",
+}
+_EXECUTION_ASSERTIONS = {
+    "all_events_processed",
+    "order_fill_conservation",
+    "ledger_balanced",
+    "nav_reconciled",
+    "strict_reload",
+    "deterministic_artifacts",
+    "artifacts_retained",
+}
 
 
 def _exact_fields(payload: dict[str, Any], expected: set[str], where: str) -> None:
@@ -69,6 +104,12 @@ def _array(value: Any, field: str) -> list[Any]:
 
 def _string_array(value: Any, field: str) -> tuple[str, ...]:
     return tuple(_string(item, f"{field} item") for item in _array(value, field))
+
+
+def _boolean(value: Any, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{field} must be a boolean")
+    return value
 
 
 @dataclass(frozen=True)
@@ -338,14 +379,6 @@ def seal_certification(certification: M7Certification) -> M7Certification:
     return replace(certification, certification_sha256=certification_hash(certification))
 
 
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _timestamp(value: str) -> datetime | None:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -356,30 +389,147 @@ def _timestamp(value: str) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _evidence_issue(
+def _evidence_payload(
     evidence: EvidenceFile,
     label: str,
     evidence_root: Path | None,
-) -> list[ValidationIssue]:
+) -> tuple[dict[str, Any] | None, list[ValidationIssue]]:
     issues: list[ValidationIssue] = []
     relative = PurePosixPath(evidence.path)
     if not evidence.path or relative.is_absolute() or ".." in relative.parts:
         issues.append(ValidationIssue("error", "EVIDENCE_PATH_UNSAFE", label))
-        return issues
+        return None, issues
     if not _SHA256.fullmatch(evidence.sha256):
         issues.append(ValidationIssue("error", "EVIDENCE_HASH_INVALID", label))
-    if evidence_root is not None:
-        root = evidence_root.resolve()
-        candidate = (root / Path(*relative.parts)).resolve()
-        try:
-            candidate.relative_to(root)
-        except ValueError:
-            issues.append(ValidationIssue("error", "EVIDENCE_PATH_ESCAPE", label))
-            return issues
-        if not candidate.is_file():
-            issues.append(ValidationIssue("error", "EVIDENCE_MISSING", label))
-        elif _SHA256.fullmatch(evidence.sha256) and _sha256_file(candidate) != evidence.sha256:
-            issues.append(ValidationIssue("error", "EVIDENCE_CONTENT_CHANGED", label))
+    if evidence_root is None:
+        issues.append(ValidationIssue("error", "EVIDENCE_ROOT_REQUIRED", label))
+        return None, issues
+    root = evidence_root.resolve()
+    candidate = (root / Path(*relative.parts)).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        issues.append(ValidationIssue("error", "EVIDENCE_PATH_ESCAPE", label))
+        return None, issues
+    if not candidate.is_file():
+        issues.append(ValidationIssue("error", "EVIDENCE_MISSING", label))
+        return None, issues
+    try:
+        body = candidate.read_bytes()
+    except OSError:
+        issues.append(ValidationIssue("error", "EVIDENCE_UNREADABLE", label))
+        return None, issues
+    if _SHA256.fullmatch(evidence.sha256) and hashlib.sha256(body).hexdigest() != evidence.sha256:
+        issues.append(ValidationIssue("error", "EVIDENCE_CONTENT_CHANGED", label))
+        return None, issues
+    try:
+        payload = json.loads(body)
+    except (UnicodeError, json.JSONDecodeError):
+        issues.append(ValidationIssue("error", "EVIDENCE_JSON_INVALID", label))
+        return None, issues
+    if not isinstance(payload, dict):
+        issues.append(ValidationIssue("error", "EVIDENCE_JSON_INVALID", label))
+        return None, issues
+    try:
+        canonical = (
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
+    except (TypeError, ValueError):
+        issues.append(ValidationIssue("error", "EVIDENCE_JSON_INVALID", label))
+        return None, issues
+    if body != canonical:
+        issues.append(ValidationIssue("error", "EVIDENCE_NOT_CANONICAL", label))
+        return None, issues
+    return payload, issues
+
+
+def _evidence_schema_issue(label: str, exc: Exception) -> ValidationIssue:
+    return ValidationIssue("error", "EVIDENCE_SCHEMA_INVALID", f"{label}: {exc}")
+
+
+def _benchmark_semantic_issues(
+    evidence: BenchmarkEvidence,
+    *,
+    label: str,
+    expected_project: str,
+    expected_commit: str | None,
+    evidence_root: Path | None,
+) -> list[ValidationIssue]:
+    payload, issues = _evidence_payload(evidence.evidence, label, evidence_root)
+    if payload is None:
+        return issues
+    try:
+        _exact_fields(
+            payload,
+            {
+                "schema_version",
+                "kind",
+                "project",
+                "source_commit",
+                "working_tree_dirty",
+                "measurement_scope",
+                "runs",
+                "assertions",
+            },
+            f"{label} evidence",
+        )
+        if (
+            _string(payload["schema_version"], "evidence schema_version")
+            != _BENCHMARK_EVIDENCE_SCHEMA
+        ):
+            raise ValueError("benchmark evidence schema_version is unsupported")
+        if _string(payload["kind"], "evidence kind") != label:
+            raise ValueError("benchmark evidence kind does not match certification section")
+        if _string(payload["project"], "evidence project") != expected_project:
+            raise ValueError("benchmark evidence project does not match certification section")
+        source_commit = _string(payload["source_commit"], "evidence source_commit")
+        if not _SHA40.fullmatch(source_commit):
+            raise ValueError("benchmark evidence source_commit is invalid")
+        if expected_commit is None or source_commit != expected_commit:
+            raise ValueError("benchmark evidence source_commit does not match CI commit")
+        if _boolean(payload["working_tree_dirty"], "working_tree_dirty"):
+            raise ValueError("benchmark evidence was produced from a dirty tree")
+        if (
+            _string(payload["measurement_scope"], "evidence measurement_scope")
+            != evidence.measurement_scope
+        ):
+            raise ValueError("benchmark evidence measurement_scope does not match certification")
+        evidence_runs = _array(payload["runs"], "evidence runs")
+        if len(evidence_runs) != len(evidence.runs):
+            raise ValueError("benchmark evidence run count does not match certification")
+        for claimed, raw in zip(evidence.runs, evidence_runs, strict=True):
+            run = _object(raw, "evidence run")
+            _exact_fields(
+                run,
+                {"run", "events", "events_per_second", "peak_rss_gib", "artifact_sha256"},
+                "benchmark evidence run",
+            )
+            if (
+                _integer(run["run"], "evidence run") != claimed.run
+                or _integer(run["events"], "evidence events") != claimed.events
+                or _number(run["events_per_second"], "evidence events_per_second")
+                != claimed.events_per_second
+                or _number(run["peak_rss_gib"], "evidence peak_rss_gib") != claimed.peak_rss_gib
+                or _string(run["artifact_sha256"], "evidence artifact_sha256")
+                != claimed.artifact_sha256
+            ):
+                raise ValueError("benchmark evidence run does not match certification claim")
+        assertions = _object(payload["assertions"], "evidence assertions")
+        expected_assertions = (
+            _DATA_ASSERTIONS if label == "data_standardization" else _EXECUTION_ASSERTIONS
+        )
+        _exact_fields(assertions, expected_assertions, f"{label} assertions")
+        if not all(_boolean(assertions[name], f"assertion {name}") for name in expected_assertions):
+            raise ValueError("benchmark evidence contains a failed assertion")
+    except (KeyError, TypeError, ValueError) as exc:
+        issues.append(_evidence_schema_issue(label, exc))
     return issues
 
 
@@ -388,9 +538,17 @@ def _benchmark_issues(
     *,
     label: str,
     minimum_rate: float,
+    expected_project: str,
+    expected_commit: str | None,
     evidence_root: Path | None,
 ) -> list[ValidationIssue]:
-    issues = _evidence_issue(evidence.evidence, label, evidence_root)
+    issues = _benchmark_semantic_issues(
+        evidence,
+        label=label,
+        expected_project=expected_project,
+        expected_commit=expected_commit,
+        evidence_root=evidence_root,
+    )
     if not evidence.measurement_scope.strip():
         issues.append(ValidationIssue("error", "MEASUREMENT_SCOPE_MISSING", label))
     if tuple(run.run for run in evidence.runs) != (1, 2, 3):
@@ -416,9 +574,104 @@ def _market_issues(
     *,
     label: str,
     crypto: bool,
+    expected_commit: str | None,
     evidence_root: Path | None,
 ) -> list[ValidationIssue]:
-    issues = _evidence_issue(evidence.evidence, label, evidence_root)
+    payload, issues = _evidence_payload(evidence.evidence, label, evidence_root)
+    if payload is not None:
+        try:
+            _exact_fields(
+                payload,
+                {
+                    "schema_version",
+                    "kind",
+                    "project",
+                    "source_commit",
+                    "status",
+                    "providers",
+                    "capabilities",
+                    "window_start",
+                    "window_end",
+                    "continuous_days",
+                    "streams",
+                    "quality",
+                    "archive",
+                },
+                f"{label} evidence",
+            )
+            if (
+                _string(payload["schema_version"], "market evidence schema_version")
+                != _MARKET_EVIDENCE_SCHEMA
+            ):
+                raise ValueError("market evidence schema_version is unsupported")
+            if _string(payload["kind"], "market evidence kind") != label:
+                raise ValueError("market evidence kind does not match certification section")
+            if _string(payload["project"], "market evidence project") != "quant-data-kit":
+                raise ValueError("market evidence project must be quant-data-kit")
+            source_commit = _string(payload["source_commit"], "market evidence source_commit")
+            if expected_commit is None or source_commit != expected_commit:
+                raise ValueError("market evidence source_commit does not match CI commit")
+            if (
+                _string(payload["status"], "market evidence status") != evidence.status
+                or _string_array(payload["providers"], "market evidence providers")
+                != evidence.providers
+                or _string_array(payload["capabilities"], "market evidence capabilities")
+                != evidence.capabilities
+                or _string(payload["window_start"], "market evidence window_start")
+                != evidence.window_start
+                or _string(payload["window_end"], "market evidence window_end")
+                != evidence.window_end
+                or _integer(payload["continuous_days"], "market evidence continuous_days")
+                != evidence.continuous_days
+            ):
+                raise ValueError("market evidence does not match certification claim")
+            streams = _string_array(payload["streams"], "market evidence streams")
+            if streams != tuple(sorted(set(streams))) or not streams:
+                raise ValueError("market evidence streams must be non-empty, unique and sorted")
+            quality = _object(payload["quality"], "market evidence quality")
+            _exact_fields(
+                quality,
+                {
+                    "raw_immutable",
+                    "normalized_immutable",
+                    "sequence_gaps_unexplained",
+                    "quarantined_partitions",
+                    "book_checkpoint_match_rate",
+                    "pit_violations",
+                    "cross_source_reviewed",
+                },
+                "market evidence quality",
+            )
+            archive = _object(payload["archive"], "market evidence archive")
+            _exact_fields(
+                archive,
+                {"independent_target", "hash_verified", "restore_drill_passed", "retention_days"},
+                "market evidence archive",
+            )
+            market_certified = evidence.status == "market-data-certified"
+            if market_certified and (
+                not _boolean(quality["raw_immutable"], "raw_immutable")
+                or not _boolean(quality["normalized_immutable"], "normalized_immutable")
+                or _integer(quality["sequence_gaps_unexplained"], "sequence_gaps_unexplained") != 0
+                or _integer(quality["quarantined_partitions"], "quarantined_partitions") != 0
+                or _number(quality["book_checkpoint_match_rate"], "book_checkpoint_match_rate")
+                != 1.0
+                or _integer(quality["pit_violations"], "pit_violations") != 0
+                or not _boolean(quality["cross_source_reviewed"], "cross_source_reviewed")
+                or not _boolean(archive["independent_target"], "independent_target")
+                or not _boolean(archive["hash_verified"], "hash_verified")
+                or not _boolean(archive["restore_drill_passed"], "restore_drill_passed")
+                or _integer(archive["retention_days"], "retention_days") < 30
+            ):
+                raise ValueError(
+                    "market-data-certified evidence has failed quality or archive gates"
+                )
+            if crypto and streams != _REQUIRED_CRYPTO_STREAMS:
+                raise ValueError(
+                    "crypto market evidence does not contain the exact frozen eight streams"
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            issues.append(_evidence_schema_issue(label, exc))
     if evidence.status not in {"market-data-certified", "fixture-certified"}:
         issues.append(ValidationIssue("error", "MARKET_STATUS_INVALID", label))
     if evidence.providers != tuple(sorted(set(evidence.providers))):
@@ -466,12 +719,73 @@ def _market_issues(
     return issues
 
 
+def _github_json(url: str) -> dict[str, Any]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "PureSaber-quant-workspace-m7-verifier",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read())
+    if not isinstance(payload, dict):
+        raise TypeError("GitHub response root must be an object")
+    return payload
+
+
+def _github_ci_issues(item: CIResult) -> list[ValidationIssue]:
+    match = _GITHUB_RUN_URL.fullmatch(item.run_url)
+    if match is None or match.group("project") != item.project:
+        return [ValidationIssue("error", "CI_URL_INVALID", item.project)]
+    run_id = int(match.group("run_id"))
+    api_root = f"https://api.github.com/repos/PureSaber/{item.project}/actions/runs/{run_id}"
+    try:
+        run = _github_json(api_root)
+        jobs = _github_json(f"{api_root}/jobs?per_page=100")
+    except (OSError, TypeError, ValueError, urllib.error.URLError, json.JSONDecodeError) as exc:
+        return [ValidationIssue("error", "CI_REMOTE_VERIFICATION_FAILED", f"{item.project}: {exc}")]
+    issues: list[ValidationIssue] = []
+    repository = run.get("repository")
+    repository_name = repository.get("full_name") if isinstance(repository, dict) else None
+    if (
+        run.get("id") != run_id
+        or run.get("html_url") != item.run_url
+        or repository_name != f"PureSaber/{item.project}"
+        or run.get("head_sha") != item.commit
+        or run.get("status") != "completed"
+        or run.get("conclusion") != "success"
+        or run.get("event") not in {"push", "pull_request", "workflow_dispatch"}
+    ):
+        issues.append(ValidationIssue("error", "CI_REMOTE_RUN_MISMATCH", item.project))
+    raw_jobs = jobs.get("jobs")
+    if not isinstance(raw_jobs, list) or jobs.get("total_count") != len(raw_jobs):
+        issues.append(ValidationIssue("error", "CI_REMOTE_JOBS_INVALID", item.project))
+        return issues
+    expected_names = {f"test ({version})" for version in _REQUIRED_PYTHONS}
+    matched = [
+        job for job in raw_jobs if isinstance(job, dict) and job.get("name") in expected_names
+    ]
+    if {job.get("name") for job in matched} != expected_names or len(matched) != len(
+        expected_names
+    ):
+        issues.append(ValidationIssue("error", "CI_REMOTE_JOBS_INCOMPLETE", item.project))
+    elif any(
+        job.get("status") != "completed" or job.get("conclusion") != "success" for job in matched
+    ):
+        issues.append(ValidationIssue("error", "CI_REMOTE_JOB_FAILED", item.project))
+    return issues
+
+
 def validate_m7_certification(
     certification: M7Certification,
     *,
     evidence_root: Path | None = None,
 ) -> M7ValidationResult:
     issues: list[ValidationIssue] = []
+    ci_commits = {item.project: item.commit for item in certification.ci}
     if certification.schema_version != M7_CERTIFICATION_SCHEMA_VERSION:
         issues.append(ValidationIssue("error", "SCHEMA_VERSION_INVALID", "M7 certification"))
     created_at = _timestamp(certification.created_at)
@@ -496,6 +810,8 @@ def validate_m7_certification(
             certification.data_standardization,
             label="data_standardization",
             minimum_rate=100_000.0,
+            expected_project="quant-data-kit",
+            expected_commit=ci_commits.get("quant-data-kit"),
             evidence_root=evidence_root,
         )
     )
@@ -504,6 +820,8 @@ def validate_m7_certification(
             certification.execution_replay,
             label="execution_replay",
             minimum_rate=50_000.0,
+            expected_project="quant-execution",
+            expected_commit=ci_commits.get("quant-execution"),
             evidence_root=evidence_root,
         )
     )
@@ -512,6 +830,7 @@ def validate_m7_certification(
             certification.crypto_l2,
             label="crypto_l2",
             crypto=True,
+            expected_commit=ci_commits.get("quant-data-kit"),
             evidence_root=evidence_root,
         )
     )
@@ -520,6 +839,7 @@ def validate_m7_certification(
             certification.domestic_l2,
             label="domestic_l2",
             crypto=False,
+            expected_commit=ci_commits.get("quant-data-kit"),
             evidence_root=evidence_root,
         )
     )
@@ -533,10 +853,7 @@ def validate_m7_certification(
             issues.append(ValidationIssue("error", "CI_PYTHON_MATRIX_INCOMPLETE", item.project))
         if item.status != "success":
             issues.append(ValidationIssue("error", "CI_FAILED", item.project))
-        if not item.run_url.startswith(
-            f"https://github.com/PureSaber/{item.project}/actions/runs/"
-        ):
-            issues.append(ValidationIssue("error", "CI_URL_INVALID", item.project))
+        issues.extend(_github_ci_issues(item))
     errors = [issue for issue in issues if issue.severity == "error"]
     rc_ready = not errors
     ga_ready = rc_ready and certification.domestic_l2.status == "market-data-certified"

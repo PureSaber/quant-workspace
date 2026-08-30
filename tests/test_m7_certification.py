@@ -24,33 +24,180 @@ from quant_workspace.m7_certification import (
 )
 
 
-def _evidence(root: Path, name: str) -> EvidenceFile:
+def _json_evidence(root: Path, name: str, payload: dict) -> EvidenceFile:
     path = root / name
-    path.write_bytes(name.encode())
+    path.write_bytes(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+        + b"\n"
+    )
     return EvidenceFile(name, hashlib.sha256(path.read_bytes()).hexdigest())
 
 
-def _benchmark(evidence: EvidenceFile, rate: float) -> BenchmarkEvidence:
+def _benchmark(
+    root: Path,
+    *,
+    name: str,
+    kind: str,
+    project: str,
+    commit: str,
+    rate: float,
+) -> BenchmarkEvidence:
+    runs = tuple(
+        BenchmarkRun(
+            run=index,
+            events=10_000_000,
+            events_per_second=rate + index,
+            peak_rss_gib=8.0,
+            artifact_sha256="a" * 64,
+        )
+        for index in (1, 2, 3)
+    )
+    assertion_names = (
+        (
+            "accepted_all",
+            "quarantine_zero",
+            "strict_reload",
+            "deterministic_artifacts",
+            "pit_passed",
+            "l2_checkpoints_match",
+            "artifacts_retained",
+        )
+        if kind == "data_standardization"
+        else (
+            "all_events_processed",
+            "order_fill_conservation",
+            "ledger_balanced",
+            "nav_reconciled",
+            "strict_reload",
+            "deterministic_artifacts",
+            "artifacts_retained",
+        )
+    )
+    payload = {
+        "schema_version": "puresaber.m7-benchmark-evidence@1.0.0",
+        "kind": kind,
+        "project": project,
+        "source_commit": commit,
+        "working_tree_dirty": False,
+        "measurement_scope": "full end-to-end certified path",
+        "runs": [run.to_dict() for run in runs],
+        "assertions": {key: True for key in assertion_names},
+    }
     return BenchmarkEvidence(
-        evidence=evidence,
+        evidence=_json_evidence(root, name, payload),
         measurement_scope="full end-to-end certified path",
-        runs=tuple(
-            BenchmarkRun(
-                run=index,
-                events=10_000_000,
-                events_per_second=rate + index,
-                peak_rss_gib=8.0,
-                artifact_sha256="a" * 64,
-            )
-            for index in (1, 2, 3)
-        ),
+        runs=runs,
     )
 
 
+def _market(
+    root: Path,
+    *,
+    name: str,
+    kind: str,
+    status: str,
+    providers: tuple[str, ...],
+    capabilities: tuple[str, ...],
+    window_start: str,
+    window_end: str,
+    continuous_days: int,
+    streams: tuple[str, ...],
+    commit: str,
+) -> MarketDataEvidence:
+    market_certified = status == "market-data-certified"
+    payload = {
+        "schema_version": "puresaber.m7-market-data-evidence@1.0.0",
+        "kind": kind,
+        "project": "quant-data-kit",
+        "source_commit": commit,
+        "status": status,
+        "providers": list(providers),
+        "capabilities": list(capabilities),
+        "window_start": window_start,
+        "window_end": window_end,
+        "continuous_days": continuous_days,
+        "streams": list(streams),
+        "quality": {
+            "raw_immutable": True,
+            "normalized_immutable": True,
+            "sequence_gaps_unexplained": 0,
+            "quarantined_partitions": 0,
+            "book_checkpoint_match_rate": 1.0,
+            "pit_violations": 0,
+            "cross_source_reviewed": True,
+        },
+        "archive": {
+            "independent_target": market_certified,
+            "hash_verified": True,
+            "restore_drill_passed": True,
+            "retention_days": 30 if market_certified else 1,
+        },
+    }
+    return MarketDataEvidence(
+        status=status,  # type: ignore[arg-type]
+        providers=providers,
+        capabilities=capabilities,
+        window_start=window_start,
+        window_end=window_end,
+        continuous_days=continuous_days,
+        evidence=_json_evidence(root, name, payload),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _trusted_github_api(monkeypatch) -> None:
+    def fake_github_json(url: str) -> dict:
+        run_part = url.split("/actions/runs/", 1)[1]
+        run_id = int(run_part.split("/", 1)[0])
+        project = url.split("/repos/PureSaber/", 1)[1].split("/", 1)[0]
+        if "/jobs?" in url:
+            jobs = [
+                {"name": f"test ({version})", "status": "completed", "conclusion": "success"}
+                for version in ("3.10", "3.11", "3.12")
+            ]
+            return {"total_count": len(jobs), "jobs": jobs}
+        return {
+            "id": run_id,
+            "html_url": f"https://github.com/PureSaber/{project}/actions/runs/{run_id}",
+            "repository": {"full_name": f"PureSaber/{project}"},
+            "head_sha": str(run_id) * 40,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "push",
+        }
+
+    monkeypatch.setattr("quant_workspace.m7_certification._github_json", fake_github_json)
+
+
 def _certification(root: Path, *, domestic_status: str = "fixture-certified") -> M7Certification:
-    data = _benchmark(_evidence(root, "data.json"), 100_000)
-    execution = _benchmark(_evidence(root, "execution.json"), 50_000)
-    crypto = MarketDataEvidence(
+    data_commit = "1" * 40
+    execution_commit = "2" * 40
+    data = _benchmark(
+        root,
+        name="data.json",
+        kind="data_standardization",
+        project="quant-data-kit",
+        commit=data_commit,
+        rate=100_000,
+    )
+    execution = _benchmark(
+        root,
+        name="execution.json",
+        kind="execution_replay",
+        project="quant-execution",
+        commit=execution_commit,
+        rate=50_000,
+    )
+    crypto = _market(
+        root,
+        name="crypto.json",
+        kind="crypto_l2",
         status="market-data-certified",
         providers=("binance", "okx"),
         capabilities=(
@@ -62,9 +209,22 @@ def _certification(root: Path, *, domestic_status: str = "fixture-certified") ->
         window_start="2026-07-01T00:00:00Z",
         window_end="2026-07-31T00:00:00Z",
         continuous_days=30,
-        evidence=_evidence(root, "crypto.json"),
+        streams=(
+            "binance:spot:BTCUSDT",
+            "binance:spot:ETHUSDT",
+            "binance:usdt-perpetual:BTCUSDT",
+            "binance:usdt-perpetual:ETHUSDT",
+            "okx:spot:BTC-USDT",
+            "okx:spot:ETH-USDT",
+            "okx:usdt-perpetual:BTC-USDT-SWAP",
+            "okx:usdt-perpetual:ETH-USDT-SWAP",
+        ),
+        commit=data_commit,
     )
-    domestic = MarketDataEvidence(
+    domestic = _market(
+        root,
+        name="domestic.json",
+        kind="domestic_l2",
         status=domestic_status,  # type: ignore[arg-type]
         providers=(
             ("licensed-domestic-provider",)
@@ -79,7 +239,12 @@ def _certification(root: Path, *, domestic_status: str = "fixture-certified") ->
             else "2026-07-02T00:00:00Z"
         ),
         continuous_days=30 if domestic_status == "market-data-certified" else 1,
-        evidence=_evidence(root, "domestic.json"),
+        streams=(
+            ("licensed-domestic-provider:market:l2",)
+            if domestic_status == "market-data-certified"
+            else ("supplier-neutral:fixture:domestic-l2",)
+        ),
+        commit=data_commit,
     )
     ci = tuple(
         CIResult(
@@ -212,6 +377,229 @@ def test_determinism_and_evidence_tampering_fail(tmp_path: Path) -> None:
 
     (tmp_path / "data.json").write_text("tampered", encoding="utf-8")
     assert "EVIDENCE_CONTENT_CHANGED" in _codes(certification, tmp_path)
+
+
+def test_rehashed_arbitrary_or_semantically_mismatched_evidence_fails(tmp_path: Path) -> None:
+    certification = _certification(tmp_path)
+    path = tmp_path / "data.json"
+
+    path.write_bytes(b"arbitrary evidence\n")
+    arbitrary = EvidenceFile("data.json", hashlib.sha256(path.read_bytes()).hexdigest())
+    changed = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(
+                certification.data_standardization,
+                evidence=arbitrary,
+            ),
+        )
+    )
+    assert "EVIDENCE_JSON_INVALID" in _codes(changed, tmp_path)
+    assert not validate_m7_certification(changed, evidence_root=tmp_path).rc_ready
+
+    certification = _certification(tmp_path)
+    payload = json.loads(path.read_bytes())
+    payload["project"] = "forged-project"
+    forged = _json_evidence(tmp_path, "data.json", payload)
+    changed = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(
+                certification.data_standardization,
+                evidence=forged,
+            ),
+        )
+    )
+    assert "EVIDENCE_SCHEMA_INVALID" in _codes(changed, tmp_path)
+    assert not validate_m7_certification(changed, evidence_root=tmp_path).rc_ready
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "unsupported"),
+        ("kind", "execution_replay"),
+        ("project", "forged-project"),
+        ("source_commit", "invalid"),
+        ("working_tree_dirty", True),
+        ("measurement_scope", "partial path"),
+        ("runs", []),
+        ("assertions.accepted_all", False),
+        ("assertions.accepted_all", "yes"),
+    ],
+)
+def test_benchmark_evidence_schema_and_claims_fail_closed(
+    tmp_path: Path,
+    field: str,
+    value,
+) -> None:
+    certification = _certification(tmp_path)
+    path = tmp_path / "data.json"
+    payload = json.loads(path.read_bytes())
+    if field.startswith("assertions."):
+        payload["assertions"][field.split(".", 1)[1]] = value
+    else:
+        payload[field] = value
+    forged = _json_evidence(tmp_path, "data.json", payload)
+    changed = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(certification.data_standardization, evidence=forged),
+        )
+    )
+    assert "EVIDENCE_SCHEMA_INVALID" in _codes(changed, tmp_path)
+    assert not validate_m7_certification(changed, evidence_root=tmp_path).rc_ready
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "unsupported"),
+        ("kind", "domestic_l2"),
+        ("project", "forged-project"),
+        ("source_commit", "f" * 40),
+        ("providers", ["binance"]),
+        ("streams", []),
+        ("streams", ["binance:spot:BTCUSDT", "binance:spot:BTCUSDT"]),
+        ("quality.raw_immutable", False),
+        ("archive.retention_days", 1),
+    ],
+)
+def test_market_evidence_schema_quality_and_streams_fail_closed(
+    tmp_path: Path,
+    field: str,
+    value,
+) -> None:
+    certification = _certification(tmp_path)
+    path = tmp_path / "crypto.json"
+    payload = json.loads(path.read_bytes())
+    if "." in field:
+        section, name = field.split(".", 1)
+        payload[section][name] = value
+    else:
+        payload[field] = value
+    forged = _json_evidence(tmp_path, "crypto.json", payload)
+    changed = seal_certification(
+        replace(
+            certification,
+            crypto_l2=replace(certification.crypto_l2, evidence=forged),
+        )
+    )
+    assert "EVIDENCE_SCHEMA_INVALID" in _codes(changed, tmp_path)
+    assert not validate_m7_certification(changed, evidence_root=tmp_path).rc_ready
+
+
+def test_non_object_and_noncanonical_evidence_fail_closed(tmp_path: Path) -> None:
+    certification = _certification(tmp_path)
+    path = tmp_path / "data.json"
+    path.write_bytes(b"[]\n")
+    evidence = EvidenceFile("data.json", hashlib.sha256(path.read_bytes()).hexdigest())
+    changed = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(certification.data_standardization, evidence=evidence),
+        )
+    )
+    assert "EVIDENCE_JSON_INVALID" in _codes(changed, tmp_path)
+
+    certification = _certification(tmp_path)
+    path.write_text(json.dumps(json.loads(path.read_bytes()), indent=2), encoding="utf-8")
+    evidence = EvidenceFile("data.json", hashlib.sha256(path.read_bytes()).hexdigest())
+    changed = seal_certification(
+        replace(
+            certification,
+            data_standardization=replace(certification.data_standardization, evidence=evidence),
+        )
+    )
+    assert "EVIDENCE_NOT_CANONICAL" in _codes(changed, tmp_path)
+
+
+def test_remote_ci_head_and_job_matrix_are_verified(tmp_path: Path, monkeypatch) -> None:
+    certification = _certification(tmp_path)
+
+    def forged_github_json(url: str) -> dict:
+        if "/jobs?" in url:
+            return {
+                "total_count": 1,
+                "jobs": [{"name": "test (3.12)", "status": "completed", "conclusion": "success"}],
+            }
+        run_part = url.split("/actions/runs/", 1)[1]
+        run_id = int(run_part.split("/", 1)[0])
+        project = url.split("/repos/PureSaber/", 1)[1].split("/", 1)[0]
+        return {
+            "id": run_id,
+            "html_url": f"https://github.com/PureSaber/{project}/actions/runs/{run_id}",
+            "repository": {"full_name": f"PureSaber/{project}"},
+            "head_sha": "f" * 40,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "push",
+        }
+
+    monkeypatch.setattr("quant_workspace.m7_certification._github_json", forged_github_json)
+    codes = _codes(certification, tmp_path)
+    assert "CI_REMOTE_RUN_MISMATCH" in codes
+    assert "CI_REMOTE_JOBS_INCOMPLETE" in codes
+    assert not validate_m7_certification(certification, evidence_root=tmp_path).rc_ready
+
+
+def test_remote_ci_transport_invalid_jobs_and_failed_job_fail_closed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    certification = _certification(tmp_path)
+
+    def unavailable(_url: str) -> dict:
+        raise OSError("offline")
+
+    monkeypatch.setattr("quant_workspace.m7_certification._github_json", unavailable)
+    assert "CI_REMOTE_VERIFICATION_FAILED" in _codes(certification, tmp_path)
+
+    def invalid_jobs(url: str) -> dict:
+        if "/jobs?" in url:
+            return {"total_count": 2, "jobs": []}
+        run_id = int(url.split("/actions/runs/", 1)[1].split("/", 1)[0])
+        project = url.split("/repos/PureSaber/", 1)[1].split("/", 1)[0]
+        return {
+            "id": run_id,
+            "html_url": f"https://github.com/PureSaber/{project}/actions/runs/{run_id}",
+            "repository": {"full_name": f"PureSaber/{project}"},
+            "head_sha": str(run_id) * 40,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "push",
+        }
+
+    monkeypatch.setattr("quant_workspace.m7_certification._github_json", invalid_jobs)
+    assert "CI_REMOTE_JOBS_INVALID" in _codes(certification, tmp_path)
+
+    def failed_job(url: str) -> dict:
+        payload = _trusted_payload(url)
+        if "/jobs?" in url:
+            payload["jobs"][0]["conclusion"] = "failure"
+        return payload
+
+    def _trusted_payload(url: str) -> dict:
+        run_id = int(url.split("/actions/runs/", 1)[1].split("/", 1)[0])
+        project = url.split("/repos/PureSaber/", 1)[1].split("/", 1)[0]
+        if "/jobs?" in url:
+            jobs = [
+                {"name": f"test ({version})", "status": "completed", "conclusion": "success"}
+                for version in ("3.10", "3.11", "3.12")
+            ]
+            return {"total_count": len(jobs), "jobs": jobs}
+        return {
+            "id": run_id,
+            "html_url": f"https://github.com/PureSaber/{project}/actions/runs/{run_id}",
+            "repository": {"full_name": f"PureSaber/{project}"},
+            "head_sha": str(run_id) * 40,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "push",
+        }
+
+    monkeypatch.setattr("quant_workspace.m7_certification._github_json", failed_job)
+    assert "CI_REMOTE_JOB_FAILED" in _codes(certification, tmp_path)
 
 
 def test_write_load_cli_and_no_clobber(tmp_path: Path, capsys) -> None:
