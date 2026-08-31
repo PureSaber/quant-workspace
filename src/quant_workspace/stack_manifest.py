@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -411,6 +412,82 @@ def _parse_schema_declarations(raw: Any) -> tuple[SchemaDeclaration, ...]:
     return tuple(sorted(declarations))
 
 
+def _literal_module_attribute(repo: Path, payload: dict[str, Any], reference: str) -> str:
+    parts = reference.split(".")
+    if len(parts) < 2 or any(not part.isidentifier() for part in parts):
+        return ""
+    attribute = parts[-1]
+    module_parts = parts[:-1]
+    tool = payload.get("tool") if isinstance(payload.get("tool"), dict) else {}
+    setuptools = tool.get("setuptools") if isinstance(tool.get("setuptools"), dict) else {}
+    roots: list[Path] = []
+    package_dir = (
+        setuptools.get("package-dir") if isinstance(setuptools.get("package-dir"), dict) else {}
+    )
+    if isinstance(package_dir.get(""), str):
+        roots.append(repo / package_dir[""])
+    packages = setuptools.get("packages") if isinstance(setuptools.get("packages"), dict) else {}
+    find = packages.get("find") if isinstance(packages.get("find"), dict) else {}
+    where = find.get("where")
+    if isinstance(where, list):
+        roots.extend(repo / item for item in where if isinstance(item, str))
+    roots.append(repo)
+
+    repo_root = repo.resolve()
+    seen: set[Path] = set()
+    for root in roots:
+        module = root.joinpath(*module_parts)
+        for candidate in (module.with_suffix(".py"), module / "__init__.py"):
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            try:
+                resolved.relative_to(repo_root)
+            except ValueError:
+                continue
+            if not resolved.is_file():
+                continue
+            try:
+                tree = ast.parse(resolved.read_text(encoding="utf-8"), filename=str(resolved))
+            except (OSError, SyntaxError, UnicodeError):
+                continue
+            for statement in tree.body:
+                value: ast.expr | None = None
+                if (
+                    isinstance(statement, ast.Assign)
+                    and any(
+                        isinstance(target, ast.Name) and target.id == attribute
+                        for target in statement.targets
+                    )
+                ) or (
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Name)
+                    and statement.target.id == attribute
+                ):
+                    value = statement.value
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    return value.value
+    return ""
+
+
+def _project_version(repo: Path, payload: dict[str, Any], project: dict[str, Any]) -> str:
+    version = project.get("version")
+    if isinstance(version, str):
+        return version
+    dynamic_fields = project.get("dynamic")
+    if not isinstance(dynamic_fields, list) or "version" not in dynamic_fields:
+        return ""
+    tool = payload.get("tool") if isinstance(payload.get("tool"), dict) else {}
+    setuptools = tool.get("setuptools") if isinstance(tool.get("setuptools"), dict) else {}
+    dynamic = setuptools.get("dynamic") if isinstance(setuptools.get("dynamic"), dict) else {}
+    dynamic_version = dynamic.get("version") if isinstance(dynamic.get("version"), dict) else {}
+    reference = dynamic_version.get("attr")
+    if not isinstance(reference, str):
+        return ""
+    return _literal_module_attribute(repo, payload, reference)
+
+
 def _read_project_metadata(repo: Path) -> dict[str, Any]:
     pyproject = repo / "pyproject.toml"
     if not pyproject.is_file():
@@ -452,7 +529,7 @@ def _read_project_metadata(repo: Path) -> dict[str, Any]:
     lock_paths = tuple(sorted(str(value) for value in locks)) if isinstance(locks, list) else ()
     return {
         "package": str(project.get("name", "")),
-        "version": str(project.get("version", "")),
+        "version": _project_version(repo, payload, project),
         "requires_python": str(project.get("requires-python", "")),
         "requirements": tuple(requirements),
         "schemas": _parse_schema_declarations(stack.get("schemas", [])),

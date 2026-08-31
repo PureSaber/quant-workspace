@@ -61,6 +61,9 @@ quant-workspace verify-stack ../validation-logs/m6/stack-manifest-v2.json
 ## Stack declarations
 
 Each runnable repository declares release metadata in `pyproject.toml`. Lock files are repository-relative and must not escape the repository.
+Static PEP 621 versions and setuptools dynamic versions backed by a literal module attribute are
+read without importing or executing repository code; computed, missing, or path-escaping dynamic
+versions fail closed as missing package metadata.
 
 ```toml
 [tool.quant-workspace]
