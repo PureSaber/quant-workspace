@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quant-workspace"
-version = "0.3.0"
+version = "0.3.1"
 description = "Path resolver, immutable stack manifest, and M7 certification gates"
 readme = "README.md"
 license = { text = "MIT" }

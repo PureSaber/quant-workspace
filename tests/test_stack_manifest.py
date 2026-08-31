@@ -47,6 +47,7 @@ def _repo_pyproject(
     package: str,
     *,
     version: str = "1.0.0",
+    dynamic_version: bool = False,
     dependencies: tuple[str, ...] = (),
     layer: str = "strategy",
     schemas: bool = True,
@@ -55,13 +56,22 @@ def _repo_pyproject(
     dependency_lines = ",\n".join(f"  {json.dumps(value)}" for value in dependencies)
     schema_line = 'schemas = [{ id = "standard/v2", version = "2.0.0" }]' if schemas else ""
     lock_line = f"lock-files = {json.dumps(list(lock_files))}" if lock_files else ""
+    version_line = (
+        'dynamic = ["version"]' if dynamic_version else f"version = {json.dumps(version)}"
+    )
+    setuptools_dynamic = (
+        f'\n[tool.setuptools.packages.find]\nwhere = ["src"]\n'
+        f'\n[tool.setuptools.dynamic]\nversion = {{ attr = "{package.replace("-", "_")}._version.__version__" }}\n'
+        if dynamic_version
+        else ""
+    )
     return f"""[build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = {json.dumps(package)}
-version = {json.dumps(version)}
+{version_line}
 requires-python = ">=3.10,<3.13"
 dependencies = [
 {dependency_lines}
@@ -71,6 +81,7 @@ dependencies = [
 layer = {json.dumps(layer)}
 {schema_line}
 {lock_line}
+{setuptools_dynamic}
 """
 
 
@@ -80,6 +91,7 @@ def _create_repo(
     *,
     package: str | None = None,
     version: str = "1.0.0",
+    dynamic_version: bool = False,
     dependencies: tuple[str, ...] = (),
     layer: str = "strategy",
     schemas: bool = True,
@@ -104,6 +116,7 @@ def _create_repo(
         _repo_pyproject(
             package or project,
             version=version,
+            dynamic_version=dynamic_version,
             dependencies=dependencies,
             layer=layer,
             schemas=schemas,
@@ -111,6 +124,12 @@ def _create_repo(
         ),
         encoding="utf-8",
     )
+    if dynamic_version:
+        package_path = repo / "src" / (package or project).replace("-", "_")
+        package_path.mkdir(parents=True)
+        (package_path / "_version.py").write_text(
+            f"__version__ = {json.dumps(version)}\n", encoding="utf-8"
+        )
     for lock in lock_files:
         lock_path = (repo / lock).resolve()
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -808,6 +827,43 @@ def test_package_version_python_range_and_tag_metadata_are_validated(release_wor
     for changed, expected in cases:
         candidate = replace(manifest, repositories=(changed, app), manifest_hash="0" * 64)
         assert expected in _codes(candidate)
+
+
+def test_setuptools_dynamic_literal_version_is_read_without_importing_code(tmp_path: Path) -> None:
+    root = tmp_path / "stack"
+    root.mkdir()
+    repo = _create_repo(
+        root,
+        "dynamic-lib",
+        version="1.2.3",
+        dynamic_version=True,
+        tag="v1.2.3",
+        annotated=True,
+    )
+    version_file = repo / "src" / "dynamic_lib" / "_version.py"
+    version_file.write_text(
+        'raise RuntimeError("must not execute")\n__version__ = "1.2.3"\n', encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "prove static metadata parsing")
+    _git(repo, "tag", "-fa", "v1.2.3", "-m", "release v1.2.3")
+
+    manifest = discover_stack(_workspace(root), "release", CREATED_AT)
+    assert manifest.repositories[0].version == "1.2.3"
+
+
+def test_computed_setuptools_dynamic_version_fails_closed(tmp_path: Path) -> None:
+    root = tmp_path / "stack"
+    root.mkdir()
+    repo = _create_repo(root, "dynamic-lib", dynamic_version=True)
+    version_file = repo / "src" / "dynamic_lib" / "_version.py"
+    version_file.write_text('__version__ = ".".join(("1", "0", "0"))\n', encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "computed version")
+    _git(repo, "tag", "-f", "v1.0.0")
+
+    _, codes = _audit_for_release_failure(_workspace(root))
+    assert "PACKAGE_METADATA_MISSING" in codes
 
 
 @pytest.mark.parametrize("allowed", [[], {"id": "standard/v2", "version": "2.0.0"}])
