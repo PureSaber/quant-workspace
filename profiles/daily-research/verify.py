@@ -1,11 +1,11 @@
 """Verify the frozen install closure before opening a paper account."""
 
-from importlib.metadata import distribution
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import sys
+from importlib.metadata import distribution
+from pathlib import Path
 
 from packaging.requirements import Requirement
 

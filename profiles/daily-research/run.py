@@ -1,8 +1,8 @@
 """One-command daily workflow, using this profile's installed Python interpreter."""
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from verify import verify
 
