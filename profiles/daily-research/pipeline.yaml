@@ -1,0 +1,6 @@
+root: ../../..
+decision_config: quant-workspace/profiles/daily-research/decision.yaml
+output: daily-runs
+timeout_seconds: 900
+# Add account_config only for your actual private statement directory.
+report_command: [-m, quant_report_hub.cli, dashboard, --decision-root, "{output}", --lab-db, "{db}", --out, "{output}/../daily-dashboard.html"]
