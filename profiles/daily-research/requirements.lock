@@ -49,7 +49,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
 pytz==2026.3.post1
 PyYAML==6.0.3
-quant-data-kit @ git+https://github.com/PureSaber/quant-data-kit.git@5b68af566ee1d47f62caa5449719912df6e17983
+quant-data-kit @ git+https://github.com/PureSaber/quant-data-kit.git@7485fef09e11dafea2a6a794c0d39e1c279c1c95
 quant-execution @ git+https://github.com/PureSaber/quant-execution.git@67164347c0a1fbb3e4f7a1b49ab9b172d02e86db
 quant-factors @ git+https://github.com/PureSaber/quant-factors.git@0ee0bcd66a94d887dbcc6196dfb85b154550c196
 quant-lab @ git+https://github.com/PureSaber/quant-lab.git@938927e5bcad641d46e3bd733e6323719d44aa50
@@ -77,6 +77,6 @@ setuptools==84.0.0
 seaborn==0.13.2
 a-share-multifactor @ git+https://github.com/PureSaber/a-share-multifactor.git@d5869c47815de17a7bc9836540c402dd55a8eb48
 quant-portfolio @ git+https://github.com/PureSaber/quant-portfolio.git@8e618932bc35bacf41a5ce1e783aea8fc3c5becc
-quant-pipeline @ git+https://github.com/PureSaber/quant-pipeline.git@27e7deaee500d8e3ee300b1458e064366a2fef33
+quant-pipeline @ git+https://github.com/PureSaber/quant-pipeline.git@4a2242db926dab0b69a3a6bd0af48556d9be7963
 quant-report-hub @ git+https://github.com/PureSaber/quant-report-hub.git@2ebb0ae608952dfe4be22654ddffad8242c7c851
 quant-workspace @ git+https://github.com/PureSaber/quant-workspace.git@v0.3.1

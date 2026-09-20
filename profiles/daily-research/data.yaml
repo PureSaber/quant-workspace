@@ -1,0 +1,13 @@
+schema_version: qdk.research-inputs/v1
+prices:
+  # This paper account consumes only the primary. Add installed providers to
+  # shadows for diagnostics; they never replace or merge into primary bars.
+  primary: akshare_tencent
+  shadows: []
+  max_workers: 2
+  max_retries: 2
+  sleep_seconds: 0.2
+benchmark: {provider: akshare_sina}
+calendar: {provider: akshare_sina}
+corporate_actions: {provider: cninfo, required: true}
+trading_status: {provider: akshare_eastmoney, required: false}

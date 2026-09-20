@@ -17,9 +17,18 @@ py -3.10 -m venv .venv-daily
 The lock includes the complete runtime/dev closure, so `--no-deps` deliberately
 prevents re-resolving previously audited packages. Public package pins satisfy
 every installed project's metadata; report-hub's exact versions govern shared
-pandas/matplotlib/Arrow. AKShare is the strategy repository's audited metadata-only
-wheel, referenced by immutable commit and SHA-256. Packages are installed as VCS
+pandas/matplotlib/Arrow. AKShare is the profile's audited live-provider wheel,
+referenced by immutable commit and SHA-256. Packages are installed as VCS
 wheels, not editable imports of neighboring working trees.
+
+`data.yaml` owns provider selection outside the strategy repository. One explicit
+primary supplies research prices; optional shadows are retained only for comparison.
+The default profile uses Tencent for prices and Sina for the HS300 benchmark; each
+domain has one explicit primary and there is no silent fallback. Eastmoney, BaoStock,
+Tushare, Yahoo, and Alpha Vantage adapters are
+available as optional `quant-data-kit` extras but are not installed in this frozen
+AKShare-only closure. Changing the primary or installed provider set requires a new
+lock and a new study/account output directory.
 
 Results appear in sibling `daily-runs/` and `daily-dashboard.html`. Inspect
 `daily-runs/operation-latest.json` and `latest.json`; HTML is a generation-time
@@ -48,7 +57,9 @@ profile with `trading_status: required`. No complete historical ST/delistings or
 historical constituent database is implied. Dividend payments use gross amounts;
 personal dividend tax and deferred receivables are not modeled.
 
-The entry point does not create a scheduler. Run after close when provider data
+The pipeline first publishes an immutable provider-neutral input snapshot, then passes
+it to the strategy through `--inputs`. The entry point does not create a scheduler.
+Run after close when provider data
 have arrived. Preserve immutable inputs and database backups. After a hard crash,
 check that no producer remains before removing its lock; see quant-pipeline's
 `docs/DAILY_RESEARCH.md`. Roll back by restoring this entire profile and its lock;
