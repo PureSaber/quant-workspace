@@ -1,0 +1,11 @@
+schema_version: qdk.research-inputs/v1
+prices:
+  primary: akshare_tencent
+  shadows: []
+  max_workers: 2
+  max_retries: 2
+  sleep_seconds: 0.2
+benchmark: {provider: akshare_sina}
+calendar: {provider: akshare_sina}
+corporate_actions: {provider: cninfo, required: true}
+trading_status: {provider: akshare_eastmoney, required: true}

@@ -1,0 +1,17 @@
+{
+  "mode": "clean-local-commits",
+  "repositories": {
+    "quant-data-kit": {"path": "quant-data-kit", "commit": "0f53bf146b9f459c03c56bd1e2f39204c4d6a0bc"},
+    "quant-lab": {"path": "quant-lab", "commit": "938927e5bcad641d46e3bd733e6323719d44aa50"},
+    "quant-execution": {"path": "quant-execution", "commit": "67164347c0a1fbb3e4f7a1b49ab9b172d02e86db"},
+    "quant-factors": {"path": "quant-factors", "commit": "0ee0bcd66a94d887dbcc6196dfb85b154550c196"},
+    "a-share-multifactor": {"path": "a-share-multifactor", "commit": "ab5e399686e1d8bc03ea67c703ad2f5bfb218686"},
+    "quant-portfolio": {"path": "quant-portfolio", "commit": "8e618932bc35bacf41a5ce1e783aea8fc3c5becc"},
+    "quant-pipeline": {"path": "quant-pipeline", "commit": "fdcf30b10601c579710fe18535642e87cacb688c"},
+    "quant-report-hub": {"path": "quant-report-hub", "python_path": ".", "commit": "40720be78de2cb89d1eaf84d3272535646b4360e"},
+    "quant-risk-monitor": {"path": "quant-risk-monitor", "commit": "6742ba15026ada66f188127574a3b4d0a7387a81"}
+  },
+  "workspace_runtime": "quant-workspace==0.3.1",
+  "requirements_sha256": "1593504bc021c2c0186a85af6ba6b1ec602eb3e15286f9f8ee4e6833a441bd98",
+  "akshare_wheel_sha256": "de6d7f77008299b5c96e13559542e153ac58d0780523c0d5b45694ce97e2099f"
+}

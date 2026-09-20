@@ -1,0 +1,8 @@
+root: ../../..
+decision_config: quant-workspace/profiles/daily-research-v2/decision.yaml
+data_config: quant-workspace/profiles/daily-research-v2/data.yaml
+output: daily-runs-v2
+timeout_seconds: 1200
+# Add account_config only after placing real statements outside Git.
+report_command: [-m, quant_report_hub.cli, dashboard, --decision-root, "{output}", --lab-db, "{db}", --out, "{output}/../daily-dashboard-v2.html"]
+alerts_file: "{output}/../daily-dashboard-v2.alerts.json"
