@@ -1,6 +1,6 @@
 {
   "repositories": {
-    "quant-data-kit": "7485fef09e11dafea2a6a794c0d39e1c279c1c95",
+    "quant-data-kit": "9ba4b9870e3c6c7ae36e0af2d7f39d0725369d97",
     "quant-lab": "938927e5bcad641d46e3bd733e6323719d44aa50",
     "quant-execution": "67164347c0a1fbb3e4f7a1b49ab9b172d02e86db",
     "quant-factors": "0ee0bcd66a94d887dbcc6196dfb85b154550c196",
@@ -10,6 +10,6 @@
     "quant-report-hub": "2ebb0ae608952dfe4be22654ddffad8242c7c851",
     "quant-workspace": "v0.3.1"
   },
-  "requirements_sha256": "655b5f735f916e8aee1a71906ff38a83379a02c856507fa946791df6a75e719d",
+  "requirements_sha256": "010a49d8a4af54cee2f201d1a75608d978e17e1a7f0b5f57249101ce59f5dec1",
   "akshare_wheel_sha256": "de6d7f77008299b5c96e13559542e153ac58d0780523c0d5b45694ce97e2099f"
 }
