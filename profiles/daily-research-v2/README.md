@@ -29,6 +29,8 @@ The workflow is conservative:
   more than eight hours old;
 - target orders are checked before emission for single-name, gross, cash, position
   count, turnover, estimated cost and industry concentration limits;
+- next-session simulated fills are capped at 1% of the observed bar volume, so a
+  large target is filled gradually instead of pretending unlimited liquidity;
 - the dashboard publishes a machine-readable alert sidecar;
 - `notification-latest.json` stays quiet for healthy/info-only runs and requests
   attention for failed/blocked runs or warning/critical alerts.

@@ -24,6 +24,7 @@ def test_v2_profile_is_a_separate_strict_portfolio_account():
     assert data["corporate_actions"]["required"] is True
     assert data["trading_status"]["required"] is True
     assert decision["trading_status"] == "required"
+    assert decision["app"]["costs"]["participation_rate"] == 0.01
     assert all(item.get("industry") for item in decision["watchlist"])
     assert {
         "max_single_weight",
