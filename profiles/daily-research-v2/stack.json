@@ -5,7 +5,7 @@
     "quant-lab": {"path": "quant-lab", "commit": "938927e5bcad641d46e3bd733e6323719d44aa50"},
     "quant-execution": {"path": "quant-execution", "commit": "67164347c0a1fbb3e4f7a1b49ab9b172d02e86db"},
     "quant-factors": {"path": "quant-factors", "commit": "0ee0bcd66a94d887dbcc6196dfb85b154550c196"},
-    "a-share-multifactor": {"path": "a-share-multifactor", "commit": "ab5e399686e1d8bc03ea67c703ad2f5bfb218686"},
+    "a-share-multifactor": {"path": "a-share-multifactor", "commit": "b30288c15b82613742e8f89185b869a806dfc58a"},
     "quant-portfolio": {"path": "quant-portfolio", "commit": "8e618932bc35bacf41a5ce1e783aea8fc3c5becc"},
     "quant-pipeline": {"path": "quant-pipeline", "commit": "fdcf30b10601c579710fe18535642e87cacb688c"},
     "quant-report-hub": {"path": "quant-report-hub", "python_path": ".", "commit": "ed723cbe21a3a9aa3c09c4fe1f2313e516b77f59"},
