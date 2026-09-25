@@ -8,7 +8,7 @@
     "a-share-multifactor": {"path": "a-share-multifactor", "commit": "ab5e399686e1d8bc03ea67c703ad2f5bfb218686"},
     "quant-portfolio": {"path": "quant-portfolio", "commit": "8e618932bc35bacf41a5ce1e783aea8fc3c5becc"},
     "quant-pipeline": {"path": "quant-pipeline", "commit": "fdcf30b10601c579710fe18535642e87cacb688c"},
-    "quant-report-hub": {"path": "quant-report-hub", "python_path": ".", "commit": "40720be78de2cb89d1eaf84d3272535646b4360e"},
+    "quant-report-hub": {"path": "quant-report-hub", "python_path": ".", "commit": "ed723cbe21a3a9aa3c09c4fe1f2313e516b77f59"},
     "quant-risk-monitor": {"path": "quant-risk-monitor", "commit": "6742ba15026ada66f188127574a3b4d0a7387a81"}
   },
   "workspace_runtime": "quant-workspace==0.3.1",
