@@ -2,6 +2,8 @@
 
 验收环境：Windows、Python3.12.5；所有应用使用独立集成目录及精确Git提交。公共依赖和应用清单见requirements.lock及stack.json。运行产物放在源码仓外。
 
+合并前审查、反例、修复与最终源码的复验记录见[REVIEW_V2.md](REVIEW_V2.md)。以下原有集成研究保留初验时的冻结身份；后续复验使用新的研究编号，不覆盖原记录。
+
 ## 功能范围
 
 |方向|交付能力|证据与边界|
@@ -50,21 +52,21 @@
 |---|---|
 |quant-data-kit|505通过、1跳过；全部核心分支覆盖门槛通过|
 |quant-lab|62通过；覆盖率82.94%|
-|quant-factors|125通过；覆盖率91.90%|
-|quant-agent|47通过|
+|quant-factors|本轮审查后126通过；覆盖率91.90%|
+|quant-agent|本轮审查后51通过|
 |quant-report-hub|108通过、4跳过；覆盖率87.52%|
 |quant-portfolio|59通过、1跳过；覆盖率88.08%|
 |quant-execution|208通过；覆盖率95.07%，现金账本纯分支90.05%，全部核心门槛通过|
-|a-share-multifactor|163通过；覆盖率85.29%，run_contract纯分支97.47%|
-|quant-pipeline|全套121通过，另有53项核心测试及四模块纯分支门槛通过；三Python版本CI通过|
+|a-share-multifactor|本轮审查后166通过；覆盖率85.47%，run_contract纯分支97.50%|
+|quant-pipeline|本轮审查后全套123通过，覆盖率81.04%；另有53项核心测试及四模块纯分支门槛通过；三Python版本CI通过|
 |quant-risk-monitor|62通过；覆盖率90.41%|
 |quant-workspace|89通过|
 
-上述11仓共1549项通过、6项跳过；不重复计入核心测试子集。ASM锁文件双轮重建一致，AKShare轮子认证及MiniRacer验证通过；workspace固定栈verify及pip check通过。测试用例数量综合本地完整测试和最终提交的CI结果，不能视为1549个相互独立的业务场景。
+表格按各模块最近一次完整验证记录列出，不重复计入核心测试子集。本轮重跑的QF、QA、ASM、Pipeline、Workspace合计555项通过，其余未修改模块由精确提交的既有完整测试和最新CI验证；原有6项跳过保留。ASM锁文件双轮重建一致，AKShare轮子认证及MiniRacer验证通过；workspace固定栈verify及pip check通过。测试用例数量不能视为相互独立的业务场景数量。
 
 ## 集成端到端
 
-在最终应用提交及固定依赖环境中，从浏览器操作台实际提交研究，使用真实ASM/QExec执行，未替换执行器：
+初验应用提交及固定依赖环境中，从浏览器操作台实际提交研究，使用真实ASM/QExec执行，未替换执行器。下述记录的代码身份保存在各study.json中，审查修复后的新记录见REVIEW_V2.md：
 
 - `studies/console-v2/runs/synthetic-etf-advanced`：7个候选全部完成，0失败；4折、160个样本外交易日；末尾15日因不足完整测试窗未评价。
 - 训练选择结果为cost_aware、cost_aware、cost_aware、base；费用和延迟压力候选不参与训练选优。报告记录训练、隔离和测试窗口以及每折入场成本。
@@ -90,6 +92,6 @@
 - [quant-pipeline#13](https://github.com/PureSaber/quant-pipeline/pull/13)
 - [quant-workspace#12](https://github.com/PureSaber/quant-workspace/pull/12)
 
-合并依赖顺序：QDK→QExec/QF/QLab→QP/QRisk/QA/QHub→ASM→Pipeline→Workspace。本轮PR尚未合并。
+合并依赖顺序：QDK→QExec/QF/QLab→QP/QRisk/QA/QHub→ASM→Pipeline→Workspace。应用PR已按此顺序合并，workspace集成清单最后合并；精确应用提交见stack.json。
 
-2026-09-26验收时，11个PR的全部61项GitHub检查通过，包括应用测试矩阵及CodeQL。ASM和QExec均通过Windows/Linux、Python3.10/3.11/3.12组合。原始检查快照在集成根`artifacts/pr-ci-status-v2.json`；后续文档补录提交仍由对应PR的最新检查约束。
+2026-09-26初验时，11个PR的全部61项GitHub检查通过，包括应用测试矩阵及CodeQL。ASM和QExec均通过Windows/Linux、Python3.10/3.11/3.12组合。初验快照在集成根`artifacts/pr-ci-status-v2.json`；本轮修复后的合并仍逐一要求最新头提交全部检查成功，记录见`artifacts/review-pr-ci-status.json`、`artifacts/review-pipeline-final-ci.json`及各`merged-*.json`。

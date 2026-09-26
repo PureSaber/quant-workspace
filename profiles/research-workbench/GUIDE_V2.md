@@ -15,7 +15,7 @@
 
 ## 自动验证及前向账户
 
-完整字段、CLI和时间语义见[quant-pipeline工作台指南](https://github.com/PureSaber/quant-pipeline/blob/codex/research-workbench-v2/docs/research-workbench-v2.md)。
+完整字段、CLI和时间语义见[quant-pipeline工作台指南](https://github.com/PureSaber/quant-pipeline/blob/main/docs/research-workbench-v2.md)。
 
 滚动验证只在训练窗口选择候选和可选方向，embargo覆盖标签成熟窗口，测试窗口不重叠；每折独立从现金开始并计入成本。报告明确这是历史滚动验证，不是未来留出证明。配对区块bootstrap与BH调整是有假设的探索统计。
 
@@ -29,7 +29,7 @@
 .venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/run.py dataset inspect --root artifacts/etf-data
 ```
 
-旧快照不改写，新增快照保留来源、父版本和重叠修订。真实支付日晚于除权日时，应收计入NAV，到付款日才增加可用现金。数据契约与来源见[QDK数据集说明](https://github.com/PureSaber/quant-data-kit/blob/codex/research-workbench-v2/docs/RESEARCH_DATASETS.md)。
+旧快照不改写，新增快照保留来源、父版本和重叠修订。真实支付日晚于除权日时，应收计入NAV，到付款日才增加可用现金。数据契约与来源见[QDK数据集说明](https://github.com/PureSaber/quant-data-kit/blob/main/docs/RESEARCH_DATASETS.md)。
 
 第1项的抓取、增量、结构与复权/分红检查可自动完成。当前历史证券主表及五类交易状态的PIT来源仍不足；今天抓取到的规则不能倒填到过去。因此真实历史策略回放会阻断。下一步需要取得研究起点前可公开核验或有授权的历史主表/状态数据，再检查供应商口径；人工点击通过不能代替数据证据。
 
