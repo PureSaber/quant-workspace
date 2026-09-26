@@ -1,0 +1,25 @@
+schema_version: quant.research-recipe/v1
+study_id: ashare-momentum-lowvol-exploration
+hypothesis: 固定动量与低波动组合在相同投入上限和成本口径下优于等权持有。
+mode: exploratory
+backend: equity
+inputs:
+  bundle: ../../../../quant-research-notes/cases/daily-2026-09-19/inputs
+  catalog: ../../../../quant-research-notes/cases/daily-2026-09-19/supported-40/watchlist_catalog.csv
+interval: {start: "2026-07-27", end: "2026-09-18"}
+factors: {momentum_20d: 1, volatility_20d: -1}
+strategy: {family: rank, frequency: weekly, top_n: 2, max_weight: 0.25, cash_buffer: 0.5, trend_window: 60}
+costs: {initial_capital: 100000, commission: 0.0003, min_commission: 5, stamp_tax: 0.0005, slippage: 0.001, participation_rate: 0.01}
+risk: {max_drawdown: 0.15, max_single_weight: 0.3}
+diagnostics:
+  single_factors: true
+  ablations: true
+  cost_multipliers: [2]
+  signal_delays: [1]
+  frequencies: [monthly]
+variants:
+  - name: momentum_60d
+    factors: {momentum_60d: 1, volatility_20d: -1}
+source:
+  scope: retrospective-fixed-watchlist
+  limitation: 40日区间用于复用已交付真实案例；不代表未触碰留出，也不替代失败的126日区间。

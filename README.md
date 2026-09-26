@@ -1,5 +1,7 @@
 # quant-workspace
 
+量化投研入口：[研究工作台](profiles/research-workbench/README.md)提供策略配方、因子筛选、历史数据预检、稳健性诊断、研究助手及四类策略模板；[验收记录](profiles/research-workbench/VALIDATION.md)列出测试与适用范围。
+
 Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7Certification 1.0.0` verifier for the PureSaber quant multi-repo stack. It eliminates hard-coded sibling paths and freezes the exact Git, package, dependency, schema, performance, and market-data evidence consumed by releases.
 
 ## Install

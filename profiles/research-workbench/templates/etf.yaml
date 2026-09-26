@@ -1,0 +1,18 @@
+schema_version: quant.research-recipe/v1
+study_id: etf-trend-exploration
+hypothesis: ETF动量排序加入长期趋势筛选后能改善扣费收益与回撤。
+mode: exploratory
+backend: equity
+inputs: {bundle: ../data/etf/inputs, catalog: ../data/etf/inputs/catalog.csv}
+interval: {start: "2024-01-02", end: "2024-12-31"}
+factors: {momentum_20d: 1, volatility_20d: -1}
+strategy: {family: etf_trend, frequency: weekly, top_n: 2, max_weight: 0.25, cash_buffer: 0.5, trend_window: 60}
+costs: {initial_capital: 100000, commission: 0.0003, min_commission: 5, stamp_tax: 0, slippage: 0.001, participation_rate: 0.01}
+risk: {max_drawdown: 0.15, max_single_weight: 0.3}
+diagnostics: {single_factors: true, ablations: true, cost_multipliers: [2], signal_delays: [1], frequencies: [monthly]}
+variants:
+  - name: trend_120
+    strategy: {trend_window: 120}
+  - name: no_trend_filter
+    strategy: {family: rank}
+source: {scope: requires-user-supplied-etf-data, limitation: 提供ETF行情与版本化主数据后运行；示例生成命令产生合成测试数据。}
