@@ -54,10 +54,26 @@
 |quant-agent|47通过|
 |quant-report-hub|108通过、4跳过；覆盖率87.52%|
 |quant-portfolio|59通过、1跳过；覆盖率88.08%|
+|quant-execution|208通过；覆盖率95.07%，现金账本纯分支90.05%，全部核心门槛通过|
+|a-share-multifactor|163通过；覆盖率85.29%，run_contract纯分支97.47%|
+|quant-pipeline|全套121通过，另有53项核心测试及四模块纯分支门槛通过；三Python版本CI通过|
 |quant-risk-monitor|62通过；覆盖率90.41%|
 |quant-workspace|89通过|
 
-核心执行、集成端到端及最终CI结果在最终交付时补记。
+上述11仓共1549项通过、6项跳过；不重复计入核心测试子集。ASM锁文件双轮重建一致，AKShare轮子认证及MiniRacer验证通过；workspace固定栈verify及pip check通过。测试用例数量综合本地完整测试和最终提交的CI结果，不能视为1549个相互独立的业务场景。
+
+## 集成端到端
+
+在最终应用提交及固定依赖环境中，从浏览器操作台实际提交研究，使用真实ASM/QExec执行，未替换执行器：
+
+- `studies/console-v2/runs/synthetic-etf-advanced`：7个候选全部完成，0失败；4折、160个样本外交易日；末尾15日因不足完整测试窗未评价。
+- 训练选择结果为cost_aware、cost_aware、cost_aware、base；费用和延迟压力候选不参与训练选优。报告记录训练、隔离和测试窗口以及每折入场成本。
+- 等权、逆波动率和成本约束分别产生52、64和57笔样本外成交，费用及净值路径不同；三种组合配置确实进入执行。配对检验与BH调整正常输出，合成样本没有获得调整后显著证据。
+- `studies/console-v2/runs/synthetic-etf-ui-control`：2个候选全部完成，0失败。浏览器勾选两项研究后确认口径兼容，差异准确列为diagnostics、hypothesis、study_id、variants。
+- 浏览器以risk_adjusted_momentum检索历史，匹配2项研究，11/11项引用验证通过；展示最小配对对照、证据缺口及建议尚未执行的说明。研究笔记保存并重载成功。
+- 逐折验证页、主报告与账户页均可由操作台访问。软件账户`studies/console-v2/accounts/software-paper-acceptance`用受控时钟完成注册、两次观察、重复观察及到期重复封存；覆盖3个交易日、2笔成交，费用14.85111。首日没有成交符合收盘信号于下一交易日执行的约束。
+
+以上研究与账户均是合成数据软件验收。其收益不代表真实市场表现；受控时钟不代表已经经历真实未来观察。
 
 ## 关联PR
 
@@ -69,5 +85,7 @@
 - [quant-risk-monitor#11](https://github.com/PureSaber/quant-risk-monitor/pull/11)
 - [quant-agent#10](https://github.com/PureSaber/quant-agent/pull/10)
 - [quant-report-hub#17](https://github.com/PureSaber/quant-report-hub/pull/17)
+- [a-share-multifactor#15](https://github.com/PureSaber/a-share-multifactor/pull/15)
+- [quant-pipeline#13](https://github.com/PureSaber/quant-pipeline/pull/13)
 
 合并依赖顺序：QDK→QExec/QF/QLab→QP/QRisk/QA/QHub→ASM→Pipeline→Workspace。本轮PR尚未合并。
