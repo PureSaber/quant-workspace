@@ -18,11 +18,11 @@
       "python_path": "src"
     },
     "quant-risk-monitor": {
-      "commit": "161f0e6ec3cb4d55d94fcd8f28fe62529bbb0dab",
+      "commit": "a5c5a8ee5486c42f07e1539ad92cf1fb57c1e638",
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "7912edd86a2fd016c5b913f8e8688d9a224c3c61",
+      "commit": "0df6e6d0f7e469d8c2e95cf87397f68ecdd7039e",
       "python_path": "src"
     },
     "quant-report-hub": {
@@ -34,11 +34,11 @@
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "bf1ab3c5ab45d371369600df707c65b1cdf15914",
+      "commit": "936a189acbecd9727b87a2613f65491ee40f17c1",
       "python_path": "src"
     },
     "quant-research-notes": {
-      "commit": "ea27d624576c667ef4d15a977edbdf289f416b1d",
+      "commit": "dcf054901626de4b855617236d43194cc21f2533",
       "python_path": null
     },
     "quant-futures-spread": {
