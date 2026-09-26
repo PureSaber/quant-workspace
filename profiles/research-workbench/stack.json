@@ -26,15 +26,15 @@
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "5226ee9a7c7aaecbef43e96467d4fc3455fcc462",
+      "commit": "4c351b62404643c1cf01a9ca141f48ffee0b76a4",
       "python_path": "."
     },
     "quant-agent": {
-      "commit": "bac4786bba9df5d55363fbe4f6e1f93073e872ee",
+      "commit": "ededa8f9e26b467c248bb0ada5aa757b2f469bb5",
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "6a3f9f88598829133ade80119be6a847d1f071cd",
+      "commit": "cac1607d1230266a7b8311b913f646a0aecda651",
       "python_path": "src"
     },
     "quant-research-notes": {
