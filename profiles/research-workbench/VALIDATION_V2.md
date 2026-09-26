@@ -72,6 +72,7 @@
 - `studies/console-v2/runs/synthetic-etf-ui-control`：2个候选全部完成，0失败。浏览器勾选两项研究后确认口径兼容，差异准确列为diagnostics、hypothesis、study_id、variants。
 - 浏览器以risk_adjusted_momentum检索历史，匹配2项研究，11/11项引用验证通过；展示最小配对对照、证据缺口及建议尚未执行的说明。研究笔记保存并重载成功。
 - 逐折验证页、主报告与账户页均可由操作台访问。软件账户`studies/console-v2/accounts/software-paper-acceptance`用受控时钟完成注册、两次观察、重复观察及到期重复封存；覆盖3个交易日、2笔成交，费用14.85111。首日没有成交符合收盘信号于下一交易日执行的约束。
+- 独立状态场景`studies/execution-state-e2e-20260926`使用相同最终源码，2个候选完成、0失败。5月29日停牌导致订单过期/拒绝，5月30日涨停拒买；解除限制后同一目标的r4订单于6月1日买入17600份。6月7日仅退出股票池、未退市，6月9日目标清空、6月12日余下17500份卖出，最终持仓为0（此前净值调仓卖出100份）。17个会话完整，7笔账本交易金额与数量平衡，两候选标准产物通过backtest-ledger认证，逐项证据见`acceptance.json`。成功重试由订单r1—r4及最终成交证明；retry_diagnostics只记录重试耗尽，此场景为空符合契约。
 
 以上研究与账户均是合成数据软件验收。其收益不代表真实市场表现；受控时钟不代表已经经历真实未来观察。
 
@@ -87,5 +88,8 @@
 - [quant-report-hub#17](https://github.com/PureSaber/quant-report-hub/pull/17)
 - [a-share-multifactor#15](https://github.com/PureSaber/a-share-multifactor/pull/15)
 - [quant-pipeline#13](https://github.com/PureSaber/quant-pipeline/pull/13)
+- [quant-workspace#12](https://github.com/PureSaber/quant-workspace/pull/12)
 
 合并依赖顺序：QDK→QExec/QF/QLab→QP/QRisk/QA/QHub→ASM→Pipeline→Workspace。本轮PR尚未合并。
+
+2026-09-26验收时，11个PR的全部61项GitHub检查通过，包括应用测试矩阵及CodeQL。ASM和QExec均通过Windows/Linux、Python3.10/3.11/3.12组合。原始检查快照在集成根`artifacts/pr-ci-status-v2.json`；后续文档补录提交仍由对应PR的最新检查约束。
