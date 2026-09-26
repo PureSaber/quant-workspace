@@ -22,6 +22,10 @@ COMMANDS = {
     "propose": ("quant_agent.research_assistant",),
     "history": ("quant_data_kit.research_coverage",),
     "report": ("quant_report_hub.research_workbench",),
+    "dataset": ("quant_data_kit.research_dataset",),
+    "web": ("quant_pipeline.research_web",),
+    "paper": ("quant_pipeline.research_paper",),
+    "advice": ("quant_agent.research_history",),
 }
 
 

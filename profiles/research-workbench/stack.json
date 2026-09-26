@@ -2,39 +2,39 @@
   "mode": "clean-local-commits",
   "repositories": {
     "quant-data-kit": {
-      "commit": "fbbad913c9e592fdcbf8b473c4230e2da8594cef",
+      "commit": "104f1ef8a3b1278c0ea5420fadaa9d1d863ce726",
       "python_path": "src"
     },
     "quant-lab": {
-      "commit": "bace19c01cf3ecd77fbbb4a5bc75f2ce3498902f",
+      "commit": "8f47d2ba69ee532d7559957e4b2fb36c2b13a3d8",
       "python_path": "src"
     },
     "quant-factors": {
-      "commit": "ba021bbe11696f0bd5cda0ee047515793f11855d",
+      "commit": "e5da58606081d9f733cdb0fec96ca408003b4e41",
       "python_path": "src"
     },
     "quant-execution": {
-      "commit": "e9bf4ca2db6e7fb632cf3b091227b4e61ff84bda",
+      "commit": "dc03e0693031169a80e0eefd06fff424d0a1bc25",
       "python_path": "src"
     },
     "quant-risk-monitor": {
-      "commit": "ede86a080eab25054756bc95ef6d31353a99122b",
+      "commit": "65499e57aacbbd5c905055d7d38b5446e95ba173",
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "59658b35e70190b14d651be0f782c8d8ff05735b",
+      "commit": "48bdf2bbc04c2b771f5d5938323196cab4e861f1",
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "82b3bac68007cfd1d5e7be70c06ae0f2d2ac1230",
+      "commit": "ab1300c996f8b39f24a6002128bcc194b12d65da",
       "python_path": "."
     },
     "quant-agent": {
-      "commit": "ededa8f9e26b467c248bb0ada5aa757b2f469bb5",
+      "commit": "c8a87c3617ab85152468759b6a673dad3c6297bc",
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "0573c5746d55dc8302961174ef0e77f6f8bc079f",
+      "commit": "add5b827a88ff18a2ec455ca588bf4c26f6b0085",
       "python_path": "src"
     },
     "quant-research-notes": {
@@ -48,9 +48,13 @@
     "quant-crypto-basis": {
       "commit": "224b9cde547b7e80b2f25bd941211422bcaa3d2b",
       "python_path": null
+    },
+    "quant-portfolio": {
+      "commit": "a80ffbc4d5896d3c9fe9e29c32f3c1982a8c713b",
+      "python_path": "src"
     }
   },
-  "requirements_sha256": "8bb60dd26ff9e6208e9fb03e52dfe80385223c927f1214895052fc0ce7601922",
+  "requirements_sha256": "dc02d1fc18afeab8b261fd682290bc55305771e16c508d0a02e4ad1366dc8d95",
   "fixtures_requirements_sha256": "61f626fd614e56362435e12e779225b37d36168ef9302abc6484c811d11b4608",
   "akshare_wheel_sha256": "de6d7f77008299b5c96e13559542e153ac58d0780523c0d5b45694ce97e2099f"
 }

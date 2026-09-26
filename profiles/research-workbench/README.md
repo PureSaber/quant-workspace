@@ -2,7 +2,7 @@
 
 一份YAML配方生成全部候选，预登记后回放，再产出账本、因子证据、成本压力、失败诊断和可筛选报告。支持A股固定观察池与ETF趋势轮动；期货价差和crypto基差使用隔离的冻结软件样例。
 
-六项功能、测试结果、数据边界与关联PR见[验收记录](VALIDATION.md)。
+本轮新增自动滚动样本外验证、本机操作台、受限因子表达式、当前NAV组合、动态状态、前向模拟和有据研究助手。指南见[第二阶段使用说明](GUIDE_V2.md)，测试和真实数据边界见[第二阶段验收记录](VALIDATION_V2.md)。上一轮六项记录保留在[历史验收记录](VALIDATION.md)。
 
 ## 安装
 
@@ -38,7 +38,7 @@ bootstrap读取stack.json，对缺失仓库克隆固定提交，对已有仓库�
 
 17个已注册共享因子均可引用，方向显式写`1`或`-1`。报告展示覆盖率、1/5/20日IC与RankIC、ICIR、正IC比例、年度及可用的行业/regime分段、两两相关。至少3个有效证券且截面非恒定才计算相关；缺失结果显示不可用。
 
-diagnostics控制single_factors、ablations、cost_multipliers、signal_delays和frequencies；variants定义有限参数邻域。全部候选在回放前登记。新公式需在quant-factors实现并测试注册；配方不接受任意Python。
+diagnostics控制single_factors、ablations、cost_multipliers、signal_delays和frequencies；variants定义有限参数邻域。全部候选在回放前登记。新公式可使用factor_expressions限定表达式，不接受任意Python。
 
 ## 3．补充历史与数据预检
 
@@ -48,13 +48,13 @@ diagnostics控制single_factors、ablations、cost_multipliers、signal_delays�
 .venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/run.py history history.csv --output data/history-v1 --provider YOUR_PROVIDER --source-uri YOUR_SOURCE --license-note "YOUR_DATA_RIGHTS"
 ```
 
-格式和时间语义见quant-data-kit的docs/research-history.md。配方inputs.history指向冻结目录，required_history可声明`{pe_ratio: fundamentals, industry: classification, tradable: status, member: universe}`。未知披露时间、断档、缺预热、非法价格和不完整历史会阻断并生成缺口清单。该功能提供导入、版本化、PIT筛选及覆盖检查，**没有凭空增加真实供应商历史权限**。当前回放仅支持固定观察池，遇到停牌/变动成分会拒绝，不能假装撮合。
+格式和时间语义见quant-data-kit的docs/research-history.md。配方inputs.history指向冻结目录，required_history可声明`{pe_ratio: fundamentals, industry: classification, tradable: status, member: universe}`。未知披露时间、断档、缺预热、非法价格和不完整历史会阻断并生成缺口清单。动态回放需显式execution配置、五类状态及股票池历史；缺少当时可得证据仍会阻断。
 
 ## 4．稳健性与诊断
 
 自动比较同投入上限买入持有、单因子、组合消融、2倍成本、信号延迟、调仓频率及手工邻域。保留逐年/连续子段收益及明确失败原因。所有成交和费用来自QExec账本。
 
-描述性ICIR、子段和参数扰动不是独立留出证明，也不自动挑选赢家。当前份额根据初始资金计算、仅日频撮合；真实A股模板复用已有40日四股票观察池，不能宣称全市场、多年稳定或替代被数据冲突阻断的126日样本。
+描述性ICIR、子段和参数扰动不是独立留出证明。validation可按训练结果逐折选择显式候选并输出样本外证据；allocation按当前净值调仓，未声明该字段的旧配方保留原有行为。目前仅日频撮合；真实A股模板是已有40日四股票观察池，不能宣称全市场、多年稳定。
 
 ## 5．研究助手
 
