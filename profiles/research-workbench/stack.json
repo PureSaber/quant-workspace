@@ -2,43 +2,43 @@
   "mode": "clean-local-commits",
   "repositories": {
     "quant-data-kit": {
-      "commit": "104f1ef8a3b1278c0ea5420fadaa9d1d863ce726",
+      "commit": "b5621379e1a15562371be31c03f354a6acf512e4",
       "python_path": "src"
     },
     "quant-lab": {
-      "commit": "8f47d2ba69ee532d7559957e4b2fb36c2b13a3d8",
+      "commit": "6ad789442a5ff7b5e3f68d241ecf0ee327f7e82f",
       "python_path": "src"
     },
     "quant-factors": {
-      "commit": "313243588a0ea090a399244eccbc8e1833119b3a",
+      "commit": "482e184b4b9b66b47c7528b6cc01cf3077ce78d3",
       "python_path": "src"
     },
     "quant-execution": {
-      "commit": "dc03e0693031169a80e0eefd06fff424d0a1bc25",
+      "commit": "99ab9b1445d72164fa4e8c6d1ebde859b80dba1f",
       "python_path": "src"
     },
     "quant-risk-monitor": {
-      "commit": "65499e57aacbbd5c905055d7d38b5446e95ba173",
+      "commit": "161f0e6ec3cb4d55d94fcd8f28fe62529bbb0dab",
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "3143574dab54e339b57a3c6a51b89befc24f385a",
+      "commit": "7912edd86a2fd016c5b913f8e8688d9a224c3c61",
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "ab1300c996f8b39f24a6002128bcc194b12d65da",
+      "commit": "314174c86e5680e9a4129af3e1a1b8cc1ae581d3",
       "python_path": "."
     },
     "quant-agent": {
-      "commit": "8914ca6082a01fcc817e59bbb11ae479f7d6a65d",
+      "commit": "7c6138d5e9134961abc158fb07e6e872edc49e95",
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "01ea24400714378c560cc609bbc01cf49bf00375",
+      "commit": "bf1ab3c5ab45d371369600df707c65b1cdf15914",
       "python_path": "src"
     },
     "quant-research-notes": {
-      "commit": "747b66ee93149bd777e746d6ba8328cf9328d5d6",
+      "commit": "ea27d624576c667ef4d15a977edbdf289f416b1d",
       "python_path": null
     },
     "quant-futures-spread": {
@@ -50,7 +50,7 @@
       "python_path": null
     },
     "quant-portfolio": {
-      "commit": "a80ffbc4d5896d3c9fe9e29c32f3c1982a8c713b",
+      "commit": "3d0f8585ce62140967cfbeb4d6ed2c8d37feb325",
       "python_path": "src"
     }
   },
