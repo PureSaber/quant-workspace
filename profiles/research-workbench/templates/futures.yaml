@@ -1,0 +1,16 @@
+schema_version: quant.research-recipe/v1
+study_id: futures-spread-fixture
+hypothesis: 核对价差双腿、保证金及换月会计随手数变化的一致性。
+mode: exploratory
+backend: futures_fixture
+inputs: {config: ../../../../quant-futures-spread/config/certified_local_sample_v1.yaml}
+interval: {start: "2020-01-02", end: "2020-01-04"}
+factors: {spread_fixture: 1}
+strategy: {family: spread, frequency: daily, top_n: 2, max_weight: 0.5, cash_buffer: 0.2, trend_window: 20}
+costs: {initial_capital: 200000, commission: 0, min_commission: 0, stamp_tax: 0, slippage: 0, participation_rate: 1}
+backend_parameters: {quantity_multiplier: 1}
+variants:
+  - name: double_quantity
+    backend_parameters: {quantity_multiplier: 2}
+diagnostics: {}
+source: {scope: fixture-only, limitation: 成本和合约规则来自冻结fixture；通用日频成本字段不覆盖认证后端。}

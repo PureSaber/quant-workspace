@@ -1,0 +1,18 @@
+schema_version: quant.research-recipe/v1
+study_id: crypto-basis-fixture
+hypothesis: 核对基差阈值与maker/taker执行选择对同一离线funding样例的影响。
+mode: exploratory
+backend: crypto_fixture
+inputs: {source: binance}
+interval: {start: "2026-01-02", end: "2026-01-04"}
+factors: {basis_funding_fixture: 1}
+strategy: {family: basis, frequency: daily, top_n: 2, max_weight: 0.5, cash_buffer: 0.2, trend_window: 20}
+costs: {initial_capital: 100000, commission: 0, min_commission: 0, stamp_tax: 0, slippage: 0, participation_rate: 1}
+backend_parameters: {entry_basis_bps: 100, exit_basis_bps: 25, minimum_funding_rate: 0.0001, quantity: 0.1, passive_limits: true}
+variants:
+  - name: taker_execution
+    backend_parameters: {passive_limits: false}
+  - name: entry_150bps
+    backend_parameters: {entry_basis_bps: 150}
+diagnostics: {}
+source: {scope: fixture-only, limitation: 收益只是软件行为示例；不声明真实历史套利表现。}
