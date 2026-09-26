@@ -24,8 +24,8 @@
 |quant-factors|118通过|
 |quant-execution|204通过|
 |quant-risk-monitor|62通过|
-|a-share-multifactor|149通过|
-|quant-report-hub|105通过，4跳过|
+|a-share-multifactor|152通过|
+|quant-report-hub|108通过，4跳过|
 |quant-agent|39通过|
 |quant-pipeline|86通过|
 |quant-workspace|89通过|
@@ -33,6 +33,8 @@
 |quant-crypto-basis，原仓未改|69通过|
 
 涉及覆盖率门禁的仓库按各自配置执行；精确GitHub状态以对应PR的Checks为准。CI覆盖Python3.10/3.11/3.12，A股仓库另有Windows/Linux矩阵。跳过项不计入通过项。
+
+合并前审查额外复现并修复三处问题，新增6项回归；详见[代码审查记录](REVIEW.md)。
 
 ## 端到端结果与边界
 

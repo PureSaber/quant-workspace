@@ -42,6 +42,8 @@ diagnostics控制single_factors、ablations、cost_multipliers、signal_delays�
 
 ## 3．补充历史与数据预检
 
+使用pe_inv或pb_inv时，必须分别在required_history中声明pe_ratio或pb_ratio属于fundamentals。无关历史文件或行情中缓存的财务列不能代替披露时间记录。
+
 ```powershell
 .venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/run.py history history.csv --output data/history-v1 --provider YOUR_PROVIDER --source-uri YOUR_SOURCE --license-note "YOUR_DATA_RIGHTS"
 ```
