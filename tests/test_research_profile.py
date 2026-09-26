@@ -47,3 +47,18 @@ def test_templates_preserve_explicit_scope_and_do_not_reuse_holdout():
         assert recipe["factors"]
         assert recipe["costs"]["participation_rate"] > 0
         assert recipe["interval"]["start"] < recipe["interval"]["end"]
+
+
+def test_dataset_root_belongs_to_dataset_command(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(PROFILE))
+    spec = importlib.util.spec_from_file_location("research_entrypoint", PROFILE / "run.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    verified = []
+    invoked = []
+    monkeypatch.setattr(module, "verify", lambda root: verified.append(root) or [root / "src"])
+    monkeypatch.setattr(module.subprocess, "call", lambda argv, **kw: invoked.append(argv) or 0)
+    dataset = str(tmp_path / "dataset")
+    assert module.main(["--root", str(tmp_path), "dataset", "inspect", "--root", dataset]) == 0
+    assert verified == [tmp_path.resolve()]
+    assert invoked[0][2:] == ["quant_data_kit.research_dataset", "inspect", "--root", dataset]
