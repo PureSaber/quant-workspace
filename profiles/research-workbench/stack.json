@@ -22,7 +22,7 @@
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "0df6e6d0f7e469d8c2e95cf87397f68ecdd7039e",
+      "commit": "90eb322d5a99bf226e7c318e7a741a3bd302fbda",
       "python_path": "src"
     },
     "quant-report-hub": {
@@ -34,11 +34,11 @@
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "936a189acbecd9727b87a2613f65491ee40f17c1",
+      "commit": "d6cfec637c9cb1684bb0ffc0aa45a260afe26f02",
       "python_path": "src"
     },
     "quant-research-notes": {
-      "commit": "dcf054901626de4b855617236d43194cc21f2533",
+      "commit": "19e5bca03c6d846debb81c2134f6ebdbfe2bb291",
       "python_path": null
     },
     "quant-futures-spread": {

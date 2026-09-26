@@ -34,6 +34,8 @@ flowchart LR
 
 `factor_bounds`限制绝对暴露；`active_factor_bounds`结合`benchmark_weights`转为优化约束。基准权重必须非负且合计为1。`max_tracking_error`在整手目标和实际持仓处检查，是执行门禁，尚未作为优化器内的二次约束。行业限制使用PIT行业标签构造指示矩阵。
 
+全部风险资产权重为零时，基准相对TE和主动因子边界只报告warning，不阻止退出或把纯现金状态当作需要买回基准的critical。原始暴露、TE数值及策略原因仍写入证据。任何非空投资组合仍严格检查；部分减仓不自动豁免，因为减掉对冲腿也可能增加绝对风险。绝对因子边界、模型有效性和数据缺失检查保持严格。
+
 `model_kind: statistical_proxy`必须用于仅有market常数因子的模型。`fundamental_style`需要真正的描述子映射与PIT历史，只有参数名称或合成暴露不构成真实风格数据。当前实现不是MSCI授权Barra，也未完成行业约束加权回归、描述子体系、波动率偏差校准、时变特异风险和ETF成分穿透。
 
 ## 风控行为
