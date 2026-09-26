@@ -26,7 +26,7 @@
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "30bac2b595b2312333f7bdac3bf156c1327bf2f9",
+      "commit": "78ff83ed6c46d0471b3133f63f08eb6f61dfb30e",
       "python_path": "."
     },
     "quant-agent": {
