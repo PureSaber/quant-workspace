@@ -66,11 +66,12 @@ def verify(root: Path) -> list[Path]:
     return paths
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=PROFILE.parents[2])
     parser.add_argument("command", choices=[*COMMANDS, "verify"])
-    args, remainder = parser.parse_known_args()
+    parser.add_argument("arguments", nargs=argparse.REMAINDER)
+    args = parser.parse_args(argv)
     paths = verify(args.root.resolve())
     if args.command == "verify":
         print("Research stack verified")
@@ -78,7 +79,7 @@ def main():
     environment = os.environ.copy()
     environment["PYTHONPATH"] = os.pathsep.join(str(p) for p in paths)
     return subprocess.call(
-        [sys.executable, "-m", *COMMANDS[args.command], *remainder], env=environment
+        [sys.executable, "-m", *COMMANDS[args.command], *args.arguments], env=environment
     )
 
 
