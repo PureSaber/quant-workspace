@@ -1,0 +1,38 @@
+name: Research integration
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: quant-workspace
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Bootstrap pinned source stack
+        run: python quant-workspace/profiles/research-workbench/bootstrap.py
+      - name: Run verified CLI and resumable synthetic study
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PYTHON=.venv-research/Scripts/python.exe
+          else
+            PYTHON=.venv-research/bin/python
+          fi
+          "$PYTHON" quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke
