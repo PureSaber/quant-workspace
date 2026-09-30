@@ -18,7 +18,7 @@
       "python_path": "src"
     },
     "quant-risk-monitor": {
-      "commit": "d437ed176608941f74e4a5d45e0007499aff200b",
+      "commit": "520f8a54113940161e405b009ab5dd8daabc880d",
       "python_path": "src"
     },
     "a-share-multifactor": {
@@ -34,7 +34,7 @@
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "5b776237f10882276777c39ec69ea59feb760366",
+      "commit": "127bbe8c6a83fe7c569fc737241127c63ce06766",
       "python_path": "src"
     },
     "quant-research-notes": {
