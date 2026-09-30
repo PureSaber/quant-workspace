@@ -26,11 +26,13 @@ bootstrap读取stack.json，对缺失仓库克隆固定提交，对已有仓库�
 
 ```powershell
 .venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke
+.venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --output integration-continuous --account-policy continuous
 ```
 
 验收生成明确标记为合成的 ETF 数据，执行带动态状态的滚动训练与测试、训练方向学习、
 2 倍成本和延迟信号候选，检查逐折风险证据、报告与续跑产物哈希。
-GitHub `Research integration` 工作流在 Windows/Linux 分别从固定提交安装并运行该链路。
+GitHub `Research integration` 工作流在 Windows/Linux 分别从固定提交安装，覆盖独立折账户和连续账户。
+连续账户额外检查所选策略路径的完整证据、恢复时指标复算，以及缓存收益被改写后的拒绝行为。
 `smoke.json` 记录软件集成结果，不能作为策略收益或实盘认证。
 
 ## 1．从配方产出研究

@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, windows-latest]
+        account-policy: [independent, continuous]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -35,4 +36,4 @@ jobs:
           else
             PYTHON=.venv-research/bin/python
           fi
-          "$PYTHON" quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke
+          "$PYTHON" quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke --account-policy "${{ matrix.account-policy }}"
