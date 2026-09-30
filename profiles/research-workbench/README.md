@@ -17,6 +17,22 @@ python quant-workspace/profiles/research-workbench/bootstrap.py
 
 bootstrap读取stack.json，对缺失仓库克隆固定提交，对已有仓库只验证、不切换分支或覆盖修改。公共依赖使用requirements.lock；应用仓库按精确Git提交安装。安装器不使用系统site-packages。输出放在各源码仓库外，避免研究产物让代码身份变脏。Linux将Scripts/python.exe替换为bin/python。
 
+本研究配置统一选择 `stack.json` 的源码提交，显式覆盖各包独立发行锁中的内部 Git 引用；
+`--no-deps` 安装和 `PYTHONPATH` 由配置入口控制，不应与各仓自己的锁混装。
+它是研究集成配置，不代表这些主线提交已经通过 M8 tag 发布认证。
+历史发布标签、冻结 fixture 环境及旧前向账户继续使用原版本。
+
+安装后执行跨仓验收（输出目录必须尚不存在）：
+
+```powershell
+.venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke
+```
+
+验收生成明确标记为合成的 ETF 数据，执行带动态状态的滚动训练与测试、训练方向学习、
+2 倍成本和延迟信号候选，检查逐折风险证据、报告与续跑产物哈希。
+GitHub `Research integration` 工作流在 Windows/Linux 分别从固定提交安装并运行该链路。
+`smoke.json` 记录软件集成结果，不能作为策略收益或实盘认证。
+
 ## 1．从配方产出研究
 
 以下命令从集成目录执行：
