@@ -16,16 +16,16 @@
 
 ## 新目录验证
 
-集成目录：`H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review`。安装时将`TEMP`、`TMP`和`PIP_CACHE_DIR`全部放在该H盘目录内，未复用或覆盖既有虚拟环境。
+使用尚不存在的`WORKSPACE_REVIEW`作为独立集成根目录。安装时将`TEMP`、`TMP`和`PIP_CACHE_DIR`全部放在该目录内，未复用或覆盖既有虚拟环境。
 
 最终提交完成后执行：
 
 ```powershell
-python quant-workspace/profiles/research-workbench/bootstrap.py --root H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review --env H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review/.venv-research
-.venv-research/Scripts/python.exe -m pip check
-.venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/run.py --root H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review verify
-.venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --root H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review --output H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review/integration-independent --account-policy independent
-.venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --root H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review --output H:/Documents/ChatGPT/temp/quant-research-workbench-20261001-review/integration-continuous --account-policy continuous
+python WORKSPACE_REVIEW/quant-workspace/profiles/research-workbench/bootstrap.py --root WORKSPACE_REVIEW --env WORKSPACE_REVIEW/.venv-research
+WORKSPACE_REVIEW/.venv-research/Scripts/python.exe -m pip check
+WORKSPACE_REVIEW/.venv-research/Scripts/python.exe WORKSPACE_REVIEW/quant-workspace/profiles/research-workbench/run.py --root WORKSPACE_REVIEW verify
+WORKSPACE_REVIEW/.venv-research/Scripts/python.exe WORKSPACE_REVIEW/quant-workspace/profiles/research-workbench/smoke.py --root WORKSPACE_REVIEW --output WORKSPACE_REVIEW/integration-independent --account-policy independent
+WORKSPACE_REVIEW/.venv-research/Scripts/python.exe WORKSPACE_REVIEW/quant-workspace/profiles/research-workbench/smoke.py --root WORKSPACE_REVIEW --output WORKSPACE_REVIEW/integration-continuous --account-policy continuous
 ```
 
 验证结果将在上述全新目录完成后记录。两项smoke只证明固定源码栈的合成软件集成、续跑不可变性及连续账户缓存防篡改，不构成策略收益、真实市场或实盘认证。
