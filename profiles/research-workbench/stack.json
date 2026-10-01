@@ -10,7 +10,7 @@
       "python_path": "src"
     },
     "quant-factors": {
-      "commit": "938d9fdc5f8b3b41469e4030ef15dd9b94604643",
+      "commit": "a26c758f2e6d9bc4e6169d97df8cbc97cdaa4f9d",
       "python_path": "src"
     },
     "quant-execution": {
@@ -26,7 +26,7 @@
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "0610249f0a6eb2c3f1b66a92cb550e8b42397013",
+      "commit": "c2afcd3f831cd90e08abb680adaf801caa39d701",
       "python_path": "."
     },
     "quant-agent": {
@@ -42,15 +42,15 @@
       "python_path": null
     },
     "quant-futures-spread": {
-      "commit": "45e7805d22b991b4f7e41650ed7168d513778410",
+      "commit": "3f1195acb5421f3c4e5b780a2c63bf567bf58ef4",
       "python_path": null
     },
     "quant-crypto-basis": {
-      "commit": "ec5dc531a8f0816785090ede475f56233a52df6b",
+      "commit": "a84d2fbc562fb3098b86e445b8ed02ac7fa7d858",
       "python_path": null
     },
     "quant-portfolio": {
-      "commit": "b6aea4488cef26355aa68a62acd88ec4811e91b6",
+      "commit": "3ade084bebd341c2faee652ee45555a7d6fbe9b3",
       "python_path": "src"
     }
   },
