@@ -2,7 +2,7 @@
   "mode": "clean-local-commits",
   "repositories": {
     "quant-data-kit": {
-      "commit": "935a9d5ea8963afa55c843c3a0b64af450321588",
+      "commit": "4d5f33fadd18d9c7200cab045b09248bff2360ea",
       "python_path": "src"
     },
     "quant-lab": {
