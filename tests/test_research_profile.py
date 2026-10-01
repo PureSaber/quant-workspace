@@ -1,11 +1,53 @@
+import hashlib
 import importlib.util
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
+from packaging.markers import default_environment
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 PROFILE = Path(__file__).resolve().parents[1] / "profiles/research-workbench"
+
+
+@pytest.mark.parametrize("version", ["3.10.0", "3.10.21", "3.11.0", "3.11.16", "3.12.5"])
+@pytest.mark.parametrize("platform,os_name", [("win32", "nt"), ("linux", "posix")])
+def test_research_lock_covers_declared_inputs_and_matches_manifest(version, platform, os_name):
+    environment = {
+        **default_environment(),
+        "python_full_version": version,
+        "python_version": ".".join(version.split(".")[:2]),
+        "sys_platform": platform,
+        "os_name": os_name,
+    }
+    lock = PROFILE / "requirements.lock"
+    stack = json.loads((PROFILE / "stack.json").read_text(encoding="utf-8"))
+    assert hashlib.sha256(lock.read_bytes()).hexdigest() == stack["requirements_sha256"]
+    selected = {}
+    for line in lock.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        requirement = Requirement(line)
+        if not requirement.marker or requirement.marker.evaluate(environment):
+            key = canonicalize_name(requirement.name)
+            assert key not in selected, f"duplicate active pin: {key}"
+            selected[key] = requirement
+    for line in (PROFILE / "requirements.in").read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        requirement = Requirement(line)
+        if requirement.marker and not requirement.marker.evaluate(environment):
+            continue
+        pin = selected[canonicalize_name(requirement.name)]
+        if requirement.url:
+            assert pin.url == requirement.url
+        else:
+            versions = [item.version for item in pin.specifier if item.operator == "=="]
+            assert len(versions) == 1
+            assert requirement.specifier.contains(versions[0]), requirement.name
 
 
 def test_checkout_gate_rejects_dirty_or_different_repository(tmp_path):
