@@ -37,3 +37,5 @@ jobs:
             PYTHON=.venv-research/bin/python
           fi
           "$PYTHON" quant-workspace/profiles/research-workbench/smoke.py --output integration-smoke --account-policy "${{ matrix.account-policy }}"
+          "$PYTHON" -c "import quant_pipeline.research_paper, a_share_multifactor.decision_workflow"
+          PYTHONPATH=quant-data-kit "$PYTHON" -m pytest -q -c quant-data-kit/pyproject.toml quant-data-kit/tests/test_research_dataset.py

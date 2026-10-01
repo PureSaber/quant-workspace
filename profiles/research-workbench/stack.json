@@ -2,7 +2,7 @@
   "mode": "clean-local-commits",
   "repositories": {
     "quant-data-kit": {
-      "commit": "41a0f4899551bb3311f8c8ab06d637fd117377d0",
+      "commit": "6ec373afae94daa572263501e2a3c5c586cb3271",
       "python_path": "src"
     },
     "quant-lab": {
@@ -10,7 +10,7 @@
       "python_path": "src"
     },
     "quant-factors": {
-      "commit": "8b0be347d4aad5945e5d01545f05935612a31bb4",
+      "commit": "938d9fdc5f8b3b41469e4030ef15dd9b94604643",
       "python_path": "src"
     },
     "quant-execution": {
@@ -18,43 +18,43 @@
       "python_path": "src"
     },
     "quant-risk-monitor": {
-      "commit": "4fbb40963fe8e3e465220be3d5aa78885c9c4f7a",
+      "commit": "f8d8b7a7c8fda48a9a5010918b908dbacaa8d809",
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "042e73704fc9702f8769c05a453e9149c448a1f0",
+      "commit": "d76114bd06d0e7bb12550441da057e7272723d0f",
       "python_path": "src"
     },
     "quant-report-hub": {
-      "commit": "02d58a445af7301375232080c34911e9aee6f2cc",
+      "commit": "0610249f0a6eb2c3f1b66a92cb550e8b42397013",
       "python_path": "."
     },
     "quant-agent": {
-      "commit": "ee4aeca1c11477293a9b1855cc5af04f05351d9c",
+      "commit": "a97089148454f0d1a1b39bee70a205be628b09e5",
       "python_path": "src"
     },
     "quant-pipeline": {
-      "commit": "127bbe8c6a83fe7c569fc737241127c63ce06766",
+      "commit": "83476bcaccb184842f9b760b34e66ffac172aafb",
       "python_path": "src"
     },
     "quant-research-notes": {
-      "commit": "7066653ad3981ca1eb1d0a5e9477d8aaf58e66d8",
+      "commit": "39ae978908097abb6289d580b5456073918fd90f",
       "python_path": null
     },
     "quant-futures-spread": {
-      "commit": "e6d15ff4a9cf930ef4f6cbe251ee48c876a4b117",
+      "commit": "45e7805d22b991b4f7e41650ed7168d513778410",
       "python_path": null
     },
     "quant-crypto-basis": {
-      "commit": "224b9cde547b7e80b2f25bd941211422bcaa3d2b",
+      "commit": "ec5dc531a8f0816785090ede475f56233a52df6b",
       "python_path": null
     },
     "quant-portfolio": {
-      "commit": "eb3f8b5fd700b12f7cab742e42da858cf73bca9e",
+      "commit": "b6aea4488cef26355aa68a62acd88ec4811e91b6",
       "python_path": "src"
     }
   },
-  "requirements_sha256": "a4531af503566977433a8d3fd57c211c19be3f3baa30480fed48222a180da8e7",
+  "requirements_sha256": "060196207ab7303d2e4002a5642a81ba23a3249f6efb1590d04e8dd9147fafcc",
   "fixtures_requirements_sha256": "61f626fd614e56362435e12e779225b37d36168ef9302abc6484c811d11b4608",
   "akshare_wheel_sha256": "de6d7f77008299b5c96e13559542e153ac58d0780523c0d5b45694ce97e2099f"
 }

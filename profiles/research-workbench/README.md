@@ -22,6 +22,22 @@ bootstrap读取stack.json，对缺失仓库克隆固定提交，对已有仓库�
 它是研究集成配置，不代表这些主线提交已经通过 M8 tag 发布认证。
 历史发布标签、冻结 fixture 环境及旧前向账户继续使用原版本。
 
+2026-10-01维护快照同步了工作台各应用的已审查源码及外部依赖，并纳入QDK行动观察契约修复。
+公司行动的首次采集时间仅在完整记录版本相同时保留，每次刷新仍有独立哈希回执；真实来源修订仍会改变前向输入前缀。
+该版本必须安装到新的集成目录，不能覆盖旧前向账户或替换其冻结代码身份。
+
+公共依赖声明保存在`requirements.in`，涵盖当前应用运行、研究与LLM扩展、构建和验证工具。
+使用Python3.10解析并覆盖3.10–3.12条件依赖；重建后同时更新`stack.json`中的锁文件SHA-256：
+
+```bash
+uv pip compile profiles/research-workbench/requirements.in --universal --python-version 3.10 \
+  --no-header --no-annotate --index-url https://pypi.org/simple \
+  --output-file profiles/research-workbench/requirements.lock
+```
+
+编译器可使用SHA-256完全一致的随仓AKShare工件进行离线解析，提交锁仍保留原公开URL与哈希。
+跨仓CI会实际下载正式工件、运行`pip check`，并将QDK重复采集及真实修订回归接入Pipeline的完整历史前缀校验。
+
 安装后执行跨仓验收（输出目录必须尚不存在）：
 
 ```powershell
