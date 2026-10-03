@@ -134,14 +134,14 @@
     },
     {
       "id": "quant-pipeline", "layer": "orchestration", "assets": ["跨资产研究流程"],
-      "capabilities": ["策略配方", "走步与连续账户验证", "研究助手", "前向登记与封存", "报告编排"],
-      "entrypoints": ["quant-pipe run", "研究工作台run.py"], "contracts": ["quant.research-recipe/v1", "研究结果及前向账户哈希"],
-      "data_status": "流程可用；真实前向天数只能随自然时间积累",
+      "capabilities": ["策略配方", "走步与连续账户验证", "研究助手", "前向登记与封存", "保存账户证据的只读检查", "报告编排"],
+      "entrypoints": ["quant-pipe run", "研究工作台run.py", "python -m quant_pipeline.research_paper inspect"], "contracts": ["quant.research-recipe/v1", "研究结果及前向账户哈希", "quant.research-paper-inspection/v1"],
+      "data_status": "流程及只读账户检查可用；检查核验保存证据，不刷新行情或增加自然前向天数",
       "gaps": ["新增应用端到端入口覆盖", "真实业务验收"], "evidence": ["README.md", "src/quant_pipeline/research_paper.py"]
     },
     {
       "id": "quant-lab", "layer": "reporting", "assets": ["跨资产研究产物"],
-      "capabilities": ["实验索引", "契约与哈希核验", "HTML看板", "探索性v2适配"],
+      "capabilities": ["实验索引", "契约与哈希核验", "HTML看板", "探索性v2适配", "只读实验登记库"],
       "entrypoints": ["quant-lab scan/export html"], "contracts": ["standard/v1", "standard/v2"],
       "data_status": "五个新增应用七份产物的校验、索引、消费和损坏拒绝已验收；不提升为执行或市场认证",
       "gaps": ["新增数据及业务场景仍需逐项验收"], "evidence": ["README.md", "src/quant_lab/research_v2.py"]
@@ -162,11 +162,11 @@
     },
     {
       "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合"],
-      "capabilities": ["本地模板向导", "配置预览", "显式执行", "运行与报告入口"],
-      "entrypoints": ["python -m quant_studio serve"], "contracts": ["模板请求", "隔离运行目录"],
-      "data_status": "四个模板；独立运行环境选择及结果优先展示已实现，真实港股预览、执行和查看结果的GUI验收通过",
-      "gaps": ["统一首页、数据预检和账户入口", "其他模板与完整新手流程验收"],
-      "evidence": ["README.md", "src/quant_studio/runner.py"]
+      "capabilities": ["统一总览", "本地模板向导", "配置预览", "港股原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验"],
+      "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
+      "data_status": "四个模板；统一首页、只读账户和港股预检至运行已通过真实GUI验收，冻结账户未改变；运行环境就绪与数据可投资性分别展示",
+      "gaps": ["A股和模拟盘的独立只读数据预检", "其他资产模板与完整新手流程验收"],
+      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py"]
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
@@ -220,6 +220,7 @@
     {"from": "quant-studio", "to": "a-share-multifactor", "contract": "显式本地CLI模板"},
     {"from": "quant-studio", "to": "quant-hk-equity", "contract": "显式本地CLI模板"},
     {"from": "quant-studio", "to": "quant-paper-sim", "contract": "显式本地CLI模板"},
+    {"from": "quant-studio", "to": "quant-pipeline", "contract": "quant.research-paper-inspection/v1只读保存账户证据"},
     {"from": "quant-workspace", "to": "quant-pipeline", "contract": "路径与固定环境profile"},
     {"from": "quant-infra-workspace", "to": "quant-research-notes", "contract": "维护验收记录"}
   ]
