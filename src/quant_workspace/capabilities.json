@@ -73,19 +73,19 @@
     },
     {
       "id": "quant-futures-spread", "layer": "application", "assets": ["期货价差"],
-      "capabilities": ["价差信号", "双腿执行核对", "换月与保证金fixture", "成本与收益报告"],
-      "entrypoints": ["qfs-certified-backtest", "run_backtest.py"], "contracts": ["standard/v2认证fixture", "legacy研究输出"],
+      "capabilities": ["价差信号", "双腿执行核对", "换月与保证金fixture", "成本与收益报告", "与回放共用静态校验的原生只读fixture预检及输入变化拒绝"],
+      "entrypoints": ["qfs-certified-backtest", "qfs-certified-backtest --preflight", "run_backtest.py"], "contracts": ["standard/v2认证fixture", "legacy研究输出", "quant-futures-spread.preflight/v1"],
       "data_status": "真实收盘价小样本仅研究；认证路径仍为fixture",
-      "gaps": ["独立双腿真实事件", "历史合约规则与费用保证金", "真实输入认证路径"],
-      "evidence": ["README.md", "pyproject.toml"]
+      "gaps": ["独立双腿真实事件", "历史合约规则与费用保证金", "真实输入认证路径", "Studio模板及事件净值报告适配"],
+      "evidence": ["README.md", "pyproject.toml", "qfs_certified/preflight.py"]
     },
     {
       "id": "quant-crypto-basis", "layer": "application", "assets": ["Crypto现货", "USDT线性永续"],
-      "capabilities": ["基差研究", "双腿完整成交校验", "资金费与保证金fixture"],
-      "entrypoints": ["项目CLI及研究工作台Crypto模板"], "contracts": ["standard/v2认证fixture"],
+      "capabilities": ["基差研究", "双腿完整成交校验", "资金费与保证金fixture", "与回放共用双源校验的原生只读fixture预检及输入变化拒绝"],
+      "entrypoints": ["qcb-run-fixture", "qcb-run-fixture --preflight", "研究工作台Crypto模板"], "contracts": ["standard/v2认证fixture", "quant-crypto-basis.preflight/v1"],
       "data_status": "现货轻量抓取有成功记录；真实双腿及规则证据未闭合",
-      "gaps": ["永续来源连通性", "独立双腿与资金费证据", "真实执行适用性"],
-      "evidence": ["README.md", "pyproject.toml"]
+      "gaps": ["永续来源连通性", "独立双腿与资金费证据", "真实执行适用性", "Studio模板及事件净值报告适配"],
+      "evidence": ["README.md", "pyproject.toml", "src/quant_crypto_basis/preflight.py"]
     },
     {
       "id": "quant-stat-arb", "layer": "application", "assets": ["股票配对", "本地价格面板"],
