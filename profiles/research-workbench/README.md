@@ -17,6 +17,19 @@ python quant-workspace/profiles/research-workbench/bootstrap.py
 
 bootstrap读取stack.json，对缺失仓库克隆固定提交，对已有仓库只验证、不切换分支或覆盖修改。公共依赖使用requirements.lock；应用仓库按精确Git提交安装。安装器不使用系统site-packages。输出放在各源码仓库外，避免研究产物让代码身份变脏。Linux将Scripts/python.exe替换为bin/python。
 
+Windows新环境可显式选择较新的Python3.12维护版本，例如3.12.13：
+
+```powershell
+python quant-workspace/profiles/research-workbench/bootstrap.py --python C:/path/to/python3.12/python.exe --env .venv-research-new
+```
+
+`--python`选择创建环境的基础解释器，不受启动bootstrap的旧Python影响。
+已有环境的基础路径或补丁版本不匹配时会拒绝复用；请新建目录，保留冻结账户的原环境。
+Python包锁不包含原生C++运行库。排查DuckDB的Windows访问冲突时，还需核对进程实际加载的DLL：
+Python目录自带的旧`VCRUNTIME140.dll`可能优先于已更新的系统DLL加载。
+参见[DuckDB官方Windows故障说明](https://duckdb.org/docs/current/clients/python/known_issues)。
+更新独立Python运行时后应重跑QDK进程完整性和全量测试，不能以一次成功证明偶发崩溃已永久消失。
+
 本研究配置统一选择 `stack.json` 的源码提交，显式覆盖各包独立发行锁中的内部 Git 引用；
 `--no-deps` 安装和 `PYTHONPATH` 由配置入口控制，不应与各仓自己的锁混装。
 它是研究集成配置，不代表这些主线提交已经通过 M8 tag 发布认证。

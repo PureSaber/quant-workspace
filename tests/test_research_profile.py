@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,40 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 PROFILE = Path(__file__).resolve().parents[1] / "profiles/research-workbench"
+
+
+def test_bootstrap_selects_base_runtime_and_refuses_environment_replacement(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location(
+        "research_runtime_bootstrap", PROFILE / "bootstrap.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    requested = str(tmp_path / "requested-python")
+    environment = tmp_path / "environment"
+    python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    old = {"base": "old-runtime", "version": [3, 12, 5]}
+    selected = {"base": "selected-runtime", "version": [3, 12, 13]}
+    commands = []
+
+    def identity(argv, **kwargs):
+        return json.dumps(selected if argv[0] == requested else old)
+
+    monkeypatch.setattr(module.subprocess, "check_output", identity)
+    monkeypatch.setattr(module.subprocess, "run", lambda argv, **kwargs: commands.append(argv))
+    assert module.create_environment(environment, requested) == python
+    assert commands == [[requested, "-m", "venv", str(environment)]]
+    python.parent.mkdir(parents=True)
+    python.write_bytes(b"existing interpreter")
+    commands.clear()
+    with pytest.raises(ValueError, match="new --env"):
+        module.create_environment(environment, requested)
+    assert commands == []
+    assert python.read_bytes() == b"existing interpreter"
+    monkeypatch.setattr(
+        module.subprocess, "check_output", lambda *args, **kwargs: json.dumps(selected)
+    )
+    assert module.create_environment(environment, requested) == python
+    assert commands == []
 
 
 @pytest.mark.parametrize("version", ["3.10.0", "3.10.21", "3.11.0", "3.11.16", "3.12.5"])
