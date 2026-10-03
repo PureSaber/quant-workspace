@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 
+from quant_workspace.capabilities import load_capabilities, source_inventory
 from quant_workspace.loader import load_workspace
 from quant_workspace.m7_certification import load_m7_certification, validate_m7_certification
 from quant_workspace.stack_manifest import (
@@ -41,6 +42,17 @@ def cmd_show(args: argparse.Namespace) -> int:
         },
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    catalog = load_capabilities()
+    if args.inventory:
+        ws = load_workspace(Path(args.config), root_override=args.root or None)
+        inventory = source_inventory(catalog, ws.root)
+        print(json.dumps(inventory, indent=2, ensure_ascii=False))
+        return 0 if inventory["source_inventory_complete"] else 2
+    print(json.dumps(catalog, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -122,6 +134,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     show = sub.add_parser("show", help="Print resolved workspace JSON")
     show.set_defaults(func=cmd_show)
+
+    capabilities = sub.add_parser("capabilities", help="Show declared capabilities and boundaries")
+    capabilities.add_argument(
+        "--inventory",
+        action="store_true",
+        help="Check local source presence, Git and evidence only",
+    )
+    capabilities.set_defaults(func=cmd_capabilities)
 
     path = sub.add_parser("path", help="Print one resolved path")
     path.add_argument("project")
