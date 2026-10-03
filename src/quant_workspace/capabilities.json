@@ -1,0 +1,226 @@
+{
+  "schema_version": "quant.capabilities/v1",
+  "as_of": "2026-10-03",
+  "scope": "23个维护仓库的功能声明；证据指向实现，存在源码不等于运行或市场认证",
+  "release_scopes": {
+    "m8_runtime": {
+      "status": "M8_SOFTWARE_RELEASE_COMPLETE / MARKET_DATA_GA_BLOCKED",
+      "boundary": "仅历史不可变发行；成员身份不认证当前HEAD，新增应用不自动继承认证",
+      "evidence": "quant-research-notes/validation/m8/M8_STATUS.md",
+      "projects": ["a-share-multifactor", "quant-agent", "quant-crypto-basis", "quant-data-kit", "quant-execution", "quant-factors", "quant-futures-spread", "quant-lab", "quant-paper-sim", "quant-pipeline", "quant-portfolio", "quant-report-hub", "quant-risk-monitor", "quant-workspace"]
+    }
+  },
+  "projects": [
+    {
+      "id": "quant-data-kit", "layer": "data",
+      "assets": ["A股", "ETF", "港股", "美股", "基金", "期货", "Crypto"],
+      "capabilities": ["数据采集与校验", "不可变快照", "历史主表与可得时间", "L2标准化及认证工具"],
+      "entrypoints": ["qdk-validate", "qdk-catalog", "python -m quant_data_kit"],
+      "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格"],
+      "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
+      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2"],
+      "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-factors", "layer": "research",
+      "assets": ["股票", "ETF", "通用价格序列"],
+      "capabilities": ["共享因子", "历史可见性", "IC衰减与中性化诊断"],
+      "entrypoints": ["quant-factors compute/list"], "contracts": ["因子面板", "因子诊断JSON"],
+      "data_status": "消费上游数据；无真实available_at时仅为日终假设",
+      "gaps": ["真实宽截面PIT描述子"], "evidence": ["README.md", "src/quant_factors/research.py"]
+    },
+    {
+      "id": "quant-execution", "layer": "execution",
+      "assets": ["A股", "ETF", "港股", "美股", "期货", "Crypto"],
+      "capabilities": ["确定性撮合", "精确现金与持仓账本", "市场专属费用交收", "风险门禁"],
+      "entrypoints": ["Python API"], "contracts": ["OrderIntent", "FixedPoint账本", "standard/v2执行事实"],
+      "data_status": "离线模拟执行；规则有效性取决于输入证据",
+      "gaps": ["真实市场规则与独立双腿验收", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "a-share-multifactor", "layer": "application",
+      "assets": ["A股", "场内ETF"],
+      "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "风险约束与账本回放"],
+      "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "EquityResearchExecutor"],
+      "contracts": ["quant.research-recipe/v1", "standard/v2"],
+      "data_status": "四ETF真实日线历史研究；r4前向窗口尚未开始",
+      "gaps": ["冻结r4时钟适用性复核", "完整历史交易状态", "独立前向结果"],
+      "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py"]
+    },
+    {
+      "id": "quant-hk-equity", "layer": "application", "assets": ["港股", "港股ETF"],
+      "capabilities": ["真实日线研究", "整手与费用", "现金交收", "公司行动及v2适配"],
+      "entrypoints": ["quant-hk fetch/preflight/run"], "contracts": ["quant-hk-study/v1", "quant-hk-study/v2", "standard/v1", "standard/v2探索性导出"],
+      "data_status": "既有真实研究为价格收益；公司行动v2已做合成验收",
+      "gaps": ["完整真实公司行动", "历史整手与交易状态", "真实交收日历"],
+      "evidence": ["README.md", "src/quant_hk_equity/research.py", "src/quant_hk_equity/actions.py"]
+    },
+    {
+      "id": "quant-us-equity", "layer": "application", "assets": ["美股", "美国ETF"],
+      "capabilities": ["ETF趋势", "股票多因子", "SEC基本面与事件", "现金分红账本", "v2适配"],
+      "entrypoints": ["us-research demo/run/verify/fetch-sec/fetch-yahoo"], "contracts": ["研究bundle", "独立study.json", "standard/v2探索性导出"],
+      "data_status": "私有应用；SEC样本已获取，真实价格链受源限流影响",
+      "gaps": ["可用且口径明确的价格源", "历史成员与退市", "分红支付日证据"],
+      "evidence": ["README.md", "src/quant_us_equity/study.py"]
+    },
+    {
+      "id": "quant-fund", "layer": "application", "assets": ["公募基金", "私募基金", "FOF"],
+      "capabilities": ["净值分析", "申赎与确认账本", "产品条款", "分用途日历", "FOF监控", "Streamlit界面"],
+      "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "基金研究报告", "standard/v2探索性导出"],
+      "data_status": "已有公募真实净值样本；完整业务账本主要以合成输入验收",
+      "gaps": ["真实条款与分红", "申赎确认银行日历", "私募授权业务材料"],
+      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py"]
+    },
+    {
+      "id": "quant-futures-spread", "layer": "application", "assets": ["期货价差"],
+      "capabilities": ["价差信号", "双腿执行核对", "换月与保证金fixture", "成本与收益报告"],
+      "entrypoints": ["qfs-certified-backtest", "run_backtest.py"], "contracts": ["standard/v2认证fixture", "legacy研究输出"],
+      "data_status": "真实收盘价小样本仅研究；认证路径仍为fixture",
+      "gaps": ["独立双腿真实事件", "历史合约规则与费用保证金", "真实输入认证路径"],
+      "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-crypto-basis", "layer": "application", "assets": ["Crypto现货", "USDT线性永续"],
+      "capabilities": ["基差研究", "双腿完整成交校验", "资金费与保证金fixture"],
+      "entrypoints": ["项目CLI及研究工作台Crypto模板"], "contracts": ["standard/v2认证fixture"],
+      "data_status": "现货轻量抓取有成功记录；真实双腿及规则证据未闭合",
+      "gaps": ["永续来源连通性", "独立双腿与资金费证据", "真实执行适用性"],
+      "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-stat-arb", "layer": "application", "assets": ["股票配对", "本地价格面板"],
+      "capabilities": ["形成期协整筛选", "冻结对冲比率", "Holm多重检验", "泄漏审计", "成本与受限成交计分"],
+      "entrypoints": ["quant-stat-arb run"], "contracts": ["standard/v1研究输出", "target订单"],
+      "data_status": "私有应用；消费本地研究价格，不自动采集或下单",
+      "gaps": ["真实借券与行业历史", "独立样本外效力", "成交成本校准"],
+      "evidence": ["README.md", "src/quant_stat_arb/contract.py"]
+    },
+    {
+      "id": "quant-timing", "layer": "application", "assets": ["指数", "ETF", "期货仓位研究"],
+      "capabilities": ["指数仓位择时", "风格择时", "因果回放", "样本外门禁", "现金与成本计分"],
+      "entrypoints": ["python -m quant_timing run/compare"], "contracts": ["standard/v1研究输出", "position_scale"],
+      "data_status": "12组历史比较已重放；多数相对基准结果为负",
+      "gaps": ["统一负面结果归因", "独立前向", "多重试验控制"],
+      "evidence": ["README.md", "src/quant_timing/contract.py"]
+    },
+    {
+      "id": "quant-regime", "layer": "research", "assets": ["通用市场价格序列"],
+      "capabilities": ["市场状态识别", "多市场诊断", "仓位缩放建议"],
+      "entrypoints": ["quant-regime detect/detect-multi"], "contracts": ["position_scale JSON"],
+      "data_status": "上游研究元数据；不足样本拒绝输出",
+      "gaps": ["样本外收益价值与风险校准"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-portfolio", "layer": "portfolio-risk", "assets": ["多策略组合"],
+      "capabilities": ["资本预算与现金分离", "策略聚合", "风险及成本约束分配"],
+      "entrypoints": ["quant-portfolio status", "research_allocation_weights API"], "contracts": ["NAV与持仓输入", "目标权重与现金权重"],
+      "data_status": "消费策略输出；组合会计通过不证明信号有效",
+      "gaps": ["真实容量和冲击模型校准"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-risk-monitor", "layer": "portfolio-risk", "assets": ["跨资产组合"],
+      "capabilities": ["VaR/CVaR", "压力与流动性检查", "因子风险", "事前风险门禁"],
+      "entrypoints": ["quant-risk check", "Python API"], "contracts": ["风险告警和指标", "PIT风险输入"],
+      "data_status": "线性风险框架和统计代理可用；未声明完整Barra",
+      "gaps": ["宽截面PIT风格行业", "特异风险校准", "ETF穿透", "独立样本外验证"],
+      "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-paper-sim", "layer": "execution", "assets": ["股票和ETF模拟组合"],
+      "capabilities": ["持仓及净值更新", "风控缩放", "幂等模拟账本"],
+      "entrypoints": ["quant-paper step"], "contracts": ["holdings.csv", "nav.csv", "风控来源配置"],
+      "data_status": "研究模拟；配置的风控来源不可读或非法即停止",
+      "gaps": ["完整真实交易规则与前向证据"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-pipeline", "layer": "orchestration", "assets": ["跨资产研究流程"],
+      "capabilities": ["策略配方", "走步与连续账户验证", "研究助手", "前向登记与封存", "报告编排"],
+      "entrypoints": ["quant-pipe run", "研究工作台run.py"], "contracts": ["quant.research-recipe/v1", "研究结果及前向账户哈希"],
+      "data_status": "流程可用；真实前向天数只能随自然时间积累",
+      "gaps": ["新增应用端到端入口覆盖", "真实业务验收"], "evidence": ["README.md", "src/quant_pipeline/research_paper.py"]
+    },
+    {
+      "id": "quant-lab", "layer": "reporting", "assets": ["跨资产研究产物"],
+      "capabilities": ["实验索引", "契约与哈希核验", "HTML看板", "探索性v2适配"],
+      "entrypoints": ["quant-lab scan/export html"], "contracts": ["standard/v1", "standard/v2"],
+      "data_status": "验证产物结构；不把研究适配提升为执行或市场认证",
+      "gaps": ["所有新增应用的统一操作验收"], "evidence": ["README.md", "src/quant_lab/research_v2.py"]
+    },
+    {
+      "id": "quant-report-hub", "layer": "reporting", "assets": ["权益组合", "价差", "标准研究产物"],
+      "capabilities": ["图表与交互报告", "收益和成本归因", "本地受限证据服务"],
+      "entrypoints": ["quant-report run"], "contracts": ["standard/v1", "standard/v2", "HTML报告"],
+      "data_status": "消费声明明确的收益权重、成本金额和资本分母",
+      "gaps": ["跨应用统一失败及基准展示"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-agent", "layer": "orchestration", "assets": ["研究产物"],
+      "capabilities": ["运行后QA复核", "研究证据检查"],
+      "entrypoints": ["quant-review run"], "contracts": ["review_manifest.json"],
+      "data_status": "运行后审查；不执行券商交易",
+      "gaps": ["跨应用统一审查覆盖"], "evidence": ["README.md", "pyproject.toml"]
+    },
+    {
+      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合"],
+      "capabilities": ["本地模板向导", "配置预览", "显式执行", "运行与报告入口"],
+      "entrypoints": ["python -m quant_studio serve"], "contracts": ["模板请求", "隔离运行目录"],
+      "data_status": "四个模板；首次使用仍受独立运行环境影响",
+      "gaps": ["明确环境配置", "真实数据预检", "完整新手操作验收"],
+      "evidence": ["README.md", "src/quant_studio/runner.py"]
+    },
+    {
+      "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
+      "capabilities": ["路径配置", "能力清单", "源码盘点", "不可变发布清单", "认证门禁", "研究环境profile"],
+      "entrypoints": ["quant-workspace show/path/capabilities/stack-manifest/verify-stack"], "contracts": ["quant.capabilities/v1", "quant.source-inventory/v1", "StackManifest 1.0.0"],
+      "data_status": "区分23仓维护范围和14仓历史发行范围",
+      "gaps": ["源码盘点不替代运行和跨仓验收"], "evidence": ["README.md", "configs/v2.release.workspace.yaml"]
+    },
+    {
+      "id": "quant-infra-workspace", "layer": "governance", "assets": ["平台仓库"],
+      "capabilities": ["跨仓健康检查", "维护治理", "工作区操作记录"],
+      "entrypoints": ["scripts/health-check.ps1"], "contracts": ["健康检查日志"],
+      "data_status": "私有维护工作区；当前健康脚本覆盖其显式配置集合",
+      "gaps": ["新增应用集成覆盖需单独验收"], "evidence": ["README.md", "scripts/health-check.ps1"]
+    },
+    {
+      "id": "quant-research-notes", "layer": "governance", "assets": ["全部研究与治理证据"],
+      "capabilities": ["仓库地图", "研究边界", "决策记录", "验收证据索引"],
+      "entrypoints": ["Markdown文档"], "contracts": ["contracts/m8", "validation证据"],
+      "data_status": "维护证据记录；不存在独立交易引擎",
+      "gaps": ["跟随能力清单和实际验收更新"], "evidence": ["repos.md", "validation/m8/M8_STATUS.md"]
+    }
+  ],
+  "relationships": [
+    {"from": "quant-data-kit", "to": "a-share-multifactor", "contract": "原始和复权行情、PIT主表快照"},
+    {"from": "quant-data-kit", "to": "quant-hk-equity", "contract": "港股行情快照与日历"},
+    {"from": "quant-data-kit", "to": "quant-us-equity", "contract": "美股价格和SEC研究bundle"},
+    {"from": "quant-data-kit", "to": "quant-futures-spread", "contract": "期货事件与证券规格"},
+    {"from": "quant-data-kit", "to": "quant-crypto-basis", "contract": "Crypto事件与证券规格"},
+    {"from": "quant-factors", "to": "a-share-multifactor", "contract": "因子面板与诊断"},
+    {"from": "quant-factors", "to": "quant-hk-equity", "contract": "动量和波动率"},
+    {"from": "quant-factors", "to": "quant-us-equity", "contract": "共享价格因子"},
+    {"from": "quant-execution", "to": "a-share-multifactor", "contract": "确定性撮合与账本"},
+    {"from": "quant-execution", "to": "quant-hk-equity", "contract": "港股现金账户"},
+    {"from": "quant-execution", "to": "quant-us-equity", "contract": "美国现金账户"},
+    {"from": "quant-execution", "to": "quant-futures-spread", "contract": "双腿fixture执行"},
+    {"from": "quant-execution", "to": "quant-crypto-basis", "contract": "双腿fixture执行"},
+    {"from": "quant-portfolio", "to": "a-share-multifactor", "contract": "研究目标权重"},
+    {"from": "quant-risk-monitor", "to": "a-share-multifactor", "contract": "事前风险与逐日约束"},
+    {"from": "quant-regime", "to": "quant-paper-sim", "contract": "经验证的position_scale"},
+    {"from": "quant-regime", "to": "quant-portfolio", "contract": "经验证的position_scale"},
+    {"from": "quant-pipeline", "to": "a-share-multifactor", "contract": "研究配方、滚动验证和前向观察"},
+    {"from": "a-share-multifactor", "to": "quant-lab", "contract": "standard/v2"},
+    {"from": "quant-hk-equity", "to": "quant-lab", "contract": "standard/v1及探索性standard/v2"},
+    {"from": "quant-us-equity", "to": "quant-lab", "contract": "探索性standard/v2"},
+    {"from": "quant-fund", "to": "quant-lab", "contract": "探索性standard/v2"},
+    {"from": "quant-stat-arb", "to": "quant-lab", "contract": "standard/v1研究列约定；需实际消费验收"},
+    {"from": "quant-timing", "to": "quant-lab", "contract": "standard/v1研究列约定；需实际消费验收"},
+    {"from": "quant-lab", "to": "quant-report-hub", "contract": "经过验证的标准研究产物"},
+    {"from": "quant-pipeline", "to": "quant-agent", "contract": "运行后复核"},
+    {"from": "quant-studio", "to": "a-share-multifactor", "contract": "显式本地CLI模板"},
+    {"from": "quant-studio", "to": "quant-hk-equity", "contract": "显式本地CLI模板"},
+    {"from": "quant-studio", "to": "quant-paper-sim", "contract": "显式本地CLI模板"},
+    {"from": "quant-workspace", "to": "quant-pipeline", "contract": "路径与固定环境profile"},
+    {"from": "quant-infra-workspace", "to": "quant-research-notes", "contract": "维护验收记录"}
+  ]
+}

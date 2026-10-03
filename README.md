@@ -4,6 +4,20 @@
 
 Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7Certification 1.0.0` verifier for the PureSaber quant multi-repo stack. It eliminates hard-coded sibling paths and freezes the exact Git, package, dependency, schema, performance, and market-data evidence consumed by releases.
 
+## 当前平台范围
+
+日常开发和维护使用[23仓配置](configs/platform.workspace.yaml)。历史桌面配置保留旧项目；M8不可变发行仍使用原来的14仓配置。两者不能互换，当前HEAD也不会因仓库属于发行清单而自动获得认证。
+
+```sh
+quant-workspace capabilities
+quant-workspace --config configs/platform.workspace.yaml capabilities --inventory
+quant-workspace --config configs/platform.workspace.yaml show
+```
+
+[机器可读能力清单](src/quant_workspace/capabilities.json)列出每仓资产、功能、入口、产物契约、数据状态、缺口和关系。`capabilities`不依赖本机仓库，可供界面展示；声明带有`as_of`日期，实际能力变化时必须同步更新证据。
+
+`--inventory`仅检查本地独立Git检出、精确HEAD、脏状态及证据文件存在性，不导入或执行仓库代码。缺仓、无提交、证据缺失或目录越界会返回非零状态；脏状态单列，不冒充源码缺失。结果始终明确`runtime_verified=false`、`integration_verified=false`、`market_data_certified=false`和`release_verified=false`。运行环境、真实数据、跨仓产物和历史发布需要各自的实际验收。
+
 ## Install
 
 ```bash

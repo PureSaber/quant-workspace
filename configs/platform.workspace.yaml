@@ -1,0 +1,26 @@
+# Current 23-repository development/maintenance scope. Not an M8 release manifest.
+root: ../..
+projects:
+  a-share-multifactor: {repo: a-share-multifactor, outputs: outputs}
+  quant-agent: {repo: quant-agent}
+  quant-crypto-basis: {repo: quant-crypto-basis, outputs: outputs}
+  quant-data-kit: {repo: quant-data-kit, data: data}
+  quant-execution: {repo: quant-execution}
+  quant-factors: {repo: quant-factors}
+  quant-fund: {repo: quant-fund}
+  quant-futures-spread: {repo: quant-futures-spread, outputs: output}
+  quant-hk-equity: {repo: quant-hk-equity}
+  quant-infra-workspace: {repo: quant-infra-workspace}
+  quant-lab: {repo: quant-lab, state: state}
+  quant-paper-sim: {repo: quant-paper-sim, state: state}
+  quant-pipeline: {repo: quant-pipeline, state: state}
+  quant-portfolio: {repo: quant-portfolio, state: state}
+  quant-regime: {repo: quant-regime}
+  quant-report-hub: {repo: quant-report-hub, reports: reports}
+  quant-research-notes: {repo: quant-research-notes, notes: experiment-log}
+  quant-risk-monitor: {repo: quant-risk-monitor, state: state}
+  quant-stat-arb: {repo: quant-stat-arb}
+  quant-studio: {repo: quant-studio}
+  quant-timing: {repo: quant-timing}
+  quant-us-equity: {repo: quant-us-equity}
+  quant-workspace: {repo: quant-workspace}
