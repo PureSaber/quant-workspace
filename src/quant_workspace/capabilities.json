@@ -40,12 +40,12 @@
     {
       "id": "a-share-multifactor", "layer": "application",
       "assets": ["A股", "场内ETF"],
-      "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "风险约束与账本回放"],
-      "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "EquityResearchExecutor"],
-      "contracts": ["quant.research-recipe/v1", "standard/v2"],
+      "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "缓存、因子与全收益基准的独立只读预检", "风险约束与账本回放"],
+      "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "python -m a_share_multifactor.preflight", "EquityResearchExecutor"],
+      "contracts": ["quant.research-recipe/v1", "asm.quantile-preflight/v1", "standard/v2"],
       "data_status": "四ETF真实日线历史研究；r4前向窗口尚未开始",
       "gaps": ["时钟修复已复验；独立r5登记待既有自动化要求的授权", "完整历史交易状态", "独立前向结果"],
-      "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py"]
+      "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py", "src/a_share_multifactor/preflight.py"]
     },
     {
       "id": "quant-hk-equity", "layer": "application", "assets": ["港股", "港股ETF"],
@@ -127,8 +127,8 @@
     },
     {
       "id": "quant-paper-sim", "layer": "execution", "assets": ["股票和ETF模拟组合"],
-      "capabilities": ["持仓及净值更新", "风控缩放", "幂等模拟账本"],
-      "entrypoints": ["quant-paper step"], "contracts": ["holdings.csv", "nav.csv", "风控来源配置"],
+      "capabilities": ["持仓及净值更新", "风控缩放", "幂等模拟账本", "信号、配置与保存状态前置条件的独立只读预检"],
+      "entrypoints": ["quant-paper step/preflight"], "contracts": ["holdings.csv", "nav.csv", "风控来源配置", "quant.paper-preflight/v1"],
       "data_status": "研究模拟；配置的风控来源不可读或非法即停止",
       "gaps": ["完整真实交易规则与前向证据"], "evidence": ["README.md", "pyproject.toml"]
     },
@@ -162,10 +162,10 @@
     },
     {
       "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合"],
-      "capabilities": ["统一总览", "本地模板向导", "配置预览", "港股原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验"],
+      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股和模拟盘原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验"],
       "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
-      "data_status": "四个模板；统一首页、只读账户和港股预检至运行已通过真实GUI验收，冻结账户未改变；运行环境就绪与数据可投资性分别展示",
-      "gaps": ["A股和模拟盘的独立只读数据预检", "其他资产模板与完整新手流程验收"],
+      "data_status": "四个模板；统一首页、只读账户、港股真实快照及模拟盘合成信号的预检至运行已通过实际GUI验收，A股缺缓存明确拒绝；冻结账户未改变，运行环境就绪与数据可投资性分别展示",
+      "gaps": ["A股完整真实缓存的GUI流程验收", "其他资产模板与完整新手流程验收"],
       "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py"]
     },
     {
