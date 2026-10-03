@@ -97,11 +97,11 @@
     },
     {
       "id": "quant-timing", "layer": "application", "assets": ["指数", "ETF", "期货仓位研究"],
-      "capabilities": ["指数仓位择时", "风格择时", "因果回放", "样本外门禁", "现金与成本计分", "原生只读预检与独立成本系数", "标准清单保护分折、来源与发布证据；Studio核验展示"],
-      "entrypoints": ["python -m quant_timing preflight/run/compare"], "contracts": ["standard/v1研究输出", "position_scale", "quant-timing.preflight/v1", "quant-timing.research-view/v1"],
-      "data_status": "12组历史比较已重放；多数相对基准结果为负。Studio合成与真实四ETF七折历史GUI、保留旧仓位、发布阻断及历史不足已验收；描述性全区间曲线与滚动测试折分开，未新增前向样本",
-      "gaps": ["负面结果复核已完成；更细账本与反事实归因待做", "独立前向", "后续新假设的预登记与多重试验控制"],
-      "evidence": ["README.md", "src/quant_timing/contract.py", "src/quant_timing/preflight.py", "src/quant_timing/export.py"]
+      "capabilities": ["指数仓位择时", "风格择时", "因果回放", "样本外门禁", "现金与成本计分", "原生只读预检与独立成本系数", "标准清单保护分折、来源与发布证据；Studio核验展示", "按原生期初净资产连接资产、现金、保证金、期货及两项模型成本；独立测试折与匹配敞口对照归因"],
+      "entrypoints": ["python -m quant_timing preflight/run/compare"], "contracts": ["standard/v1研究输出", "position_scale", "quant-timing.preflight/v1", "quant-timing.research-view/v1", "quant-timing.return-attribution/v1"],
+      "data_status": "12组历史比较、120折完成可加总账本归因，原收益指标保持一致；多数相对基准结果仍为负。真实四ETF与现金/期货/冲击合成GUI、分折展开及CSV下载已验收；91份原来源及3份合成GUI输入未变。描述性全区间与测试折分开，不拼接重叠折，未新增前向样本",
+      "gaps": ["账本贡献差不等于仓位或风格的独立反事实识别", "冲击模型与独立执行参考价校准、完整现金机会成本", "独立前向", "后续新假设的预登记与多重试验控制"],
+      "evidence": ["README.md", "src/quant_timing/contract.py", "src/quant_timing/preflight.py", "src/quant_timing/export.py", "src/quant_timing/attribution.py"]
     },
     {
       "id": "quant-regime", "layer": "research", "assets": ["通用市场价格序列"],
@@ -164,9 +164,9 @@
       "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合", "基金/FOF", "美股/ETF", "期货双腿离线样例", "Crypto基差离线样例", "统计套利研究", "指数与风格择时"],
       "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股、模拟盘、基金、美股、统计套利、择时及期货/Crypto离线样例原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验", "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准", "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金", "已有研究配置文件与原生权重、收益比例费用展示", "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载"],
       "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
-      "data_status": "十个模板、九个业务预检入口；择时四组原生CLI、合成与真实历史GUI、保留旧仓位/发布阻断、历史不足和完整分折CSV已验收，10份来源文件未变。1280/390像素布局通过，指标卡窄屏换行；原统计套利、期货/Crypto、港股及基金/美股验收保留。基金嵌入控制台问题与A股完整真实缓存GUI仍待完成；模板增加不提升真实市场认证",
+      "data_status": "十个模板、九个业务预检入口；择时增加资产、现金、期货及模型成本归因，支持独立分折、贡献条形和完整逐日CSV；页面及下载核验来源与副本。162项单测、四组原生CLI、真实与合成GUI及1280/390像素布局通过。原保留旧仓位/发布阻断、统计套利及其他资产验收保留。基金嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证",
       "gaps": ["A股完整真实缓存的GUI流程验收", "完整新手流程及新增业务场景验收", "基金嵌入报告MutationObserver控制台错误来源尚未确定；直接报告无错误，图表与表格可用"],
-      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "src/quant_studio/standard_view.py", "src/quant_studio/timing_view.py", "integration/test_asset_upstream.py", "integration/test_fixture_upstream.py", "integration/test_stat_arb_upstream.py", "integration/test_timing_upstream.py", "src/quant_studio/templates/stat-arb-research/template.json", "src/quant_studio/templates/timing-research/template.json"]
+      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "src/quant_studio/standard_view.py", "src/quant_studio/timing_view.py", "src/quant_studio/timing_attribution_panel.py", "integration/test_asset_upstream.py", "integration/test_fixture_upstream.py", "integration/test_stat_arb_upstream.py", "integration/test_timing_upstream.py", "src/quant_studio/templates/stat-arb-research/template.json", "src/quant_studio/templates/timing-research/template.json"]
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
