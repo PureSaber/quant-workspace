@@ -89,11 +89,11 @@
     },
     {
       "id": "quant-stat-arb", "layer": "application", "assets": ["股票配对", "本地价格面板"],
-      "capabilities": ["形成期协整筛选", "冻结对冲比率", "Holm多重检验", "泄漏审计", "成本与受限成交计分"],
-      "entrypoints": ["quant-stat-arb run"], "contracts": ["standard/v1研究输出", "target订单"],
-      "data_status": "私有应用；四ETF真实回顾性价格七折回放已验收，借券及成交为假设；不自动采集或下单",
+      "capabilities": ["形成期协整筛选", "冻结对冲比率", "Holm多重检验", "泄漏审计", "成本与受限成交计分", "共用原生输入对齐和滚动窗口的只读预检", "Studio已有配置文件入口、同参数运行及权重与收益比例展示"],
+      "entrypoints": ["quant-stat-arb preflight/run"], "contracts": ["standard/v1研究输出", "target订单", "quant-stat-arb.preflight/v1", "quant-stat-arb.run-context/v1"],
+      "data_status": "私有应用；四ETF真实回顾性价格七折回放及Studio GUI已验收。合成与真实价格保留显式来源性质，输入变化和风险验收失败均拒绝成功；借券及成交仍为假设，不自动采集或下单",
       "gaps": ["真实借券与行业历史", "独立样本外效力", "成交成本校准"],
-      "evidence": ["README.md", "src/quant_stat_arb/contract.py"]
+      "evidence": ["README.md", "src/quant_stat_arb/contract.py", "src/quant_stat_arb/preflight.py", ".github/workflows/studio-integration.yml"]
     },
     {
       "id": "quant-timing", "layer": "application", "assets": ["指数", "ETF", "期货仓位研究"],
@@ -161,12 +161,12 @@
       "gaps": ["跨应用统一审查覆盖"], "evidence": ["README.md", "pyproject.toml"]
     },
     {
-      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合", "基金/FOF", "美股/ETF", "期货双腿离线样例", "Crypto基差离线样例"],
-      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股、模拟盘、基金、美股及期货/Crypto离线样例原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验", "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准", "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金"],
+      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合", "基金/FOF", "美股/ETF", "期货双腿离线样例", "Crypto基差离线样例", "统计套利研究"],
+      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股、模拟盘、基金、美股、统计套利及期货/Crypto离线样例原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验", "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准", "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金", "已有研究配置文件与原生权重、收益比例费用展示"],
       "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
-      "data_status": "八个模板、七个业务预检入口；期货与Crypto五组离线CLI、两模板GUI、精确事件净值与账本金额、重复只读投影及篡改拒绝已验收；六份上游输入不变。保留此前港股真实GUI、模拟盘及基金/美股合成验收。基金嵌入报告控制台问题保留，A股完整真实缓存GUI尚缺；模板增加不提升真实市场认证",
+      "data_status": "九个模板、八个业务预检入口；统计套利两组合成CLI、合成及真实四ETF GUI、单位净值与权重费用、窗口不足和回测风险失败、完整CSV下载均已验收，七份原来源文件未变。保留期货/Crypto原生事件账本、此前港股真实GUI、模拟盘及基金/美股合成验收。基金嵌入报告控制台问题保留，A股完整真实缓存GUI尚缺；模板增加不提升真实市场认证",
       "gaps": ["A股完整真实缓存的GUI流程验收", "其他资产模板与完整新手流程验收", "基金嵌入报告MutationObserver控制台错误来源尚未确定；直接报告无错误，图表与表格可用"],
-      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "src/quant_studio/standard_view.py", "integration/test_asset_upstream.py", "integration/test_fixture_upstream.py"]
+      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "src/quant_studio/standard_view.py", "integration/test_asset_upstream.py", "integration/test_fixture_upstream.py", "integration/test_stat_arb_upstream.py", "src/quant_studio/templates/stat-arb-research/template.json"]
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
@@ -224,6 +224,7 @@
     {"from": "quant-studio", "to": "quant-us-equity", "contract": "独立Python的原生预检和研究CLI；USD账户、同日期基准及数据性质"},
     {"from": "quant-studio", "to": "quant-futures-spread", "contract": "固定离线CLI预检和回放；冻结QLab核验后投影CNY事件净值与保证金账本"},
     {"from": "quant-studio", "to": "quant-crypto-basis", "contract": "双源离线maker/taker预检和回放；精确USDT本金、毫秒事件与原生账本投影"},
+    {"from": "quant-studio", "to": "quant-stat-arb", "contract": "已有研究配置文件与独立覆盖参数；原生只读预检、单位净值、研究权重及收益比例费用"},
     {"from": "quant-studio", "to": "quant-pipeline", "contract": "quant.research-paper-inspection/v1只读保存账户证据"},
     {"from": "quant-workspace", "to": "quant-pipeline", "contract": "路径与固定环境profile"},
     {"from": "quant-infra-workspace", "to": "quant-research-notes", "contract": "维护验收记录"}
