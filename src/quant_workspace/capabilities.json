@@ -40,10 +40,10 @@
     {
       "id": "a-share-multifactor", "layer": "application",
       "assets": ["A股", "场内ETF"],
-      "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "缓存、因子与全收益基准的独立只读预检", "风险约束与账本回放", "保留风险模型的等权对照及显式基准定义的六维配对反事实"],
+      "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "缓存、因子与全收益基准的独立只读预检", "风险约束与账本回放", "保留风险模型的等权对照及显式基准定义的六维配对反事实", "仅改变现金缓冲比例或趋势资格筛选的原生配对研究"],
       "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "python -m a_share_multifactor.preflight", "EquityResearchExecutor"],
       "contracts": ["quant.research-recipe/v1", "asm.quantile-preflight/v1", "standard/v2"],
-      "data_status": "四ETF真实日线历史研究；六维单项干预与三个基准的27个新账本、原收益复现及三参考分解已验收，不增加独立样本；r4前向窗口尚未开始",
+      "data_status": "四ETF真实日线历史研究；六维27账本及现金缓冲/趋势筛选两组30账本完成原生核验，原收益及基准路径复现；全部重用189个市场日期，不增加独立样本；r4前向窗口尚未开始",
       "gaps": ["时钟修复已复验；独立r5登记待既有自动化要求的授权", "完整历史交易状态", "独立前向结果"],
       "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py", "src/a_share_multifactor/preflight.py", "src/a_share_multifactor/paired_research.py"]
     },
@@ -141,7 +141,7 @@
     },
     {
       "id": "quant-lab", "layer": "reporting", "assets": ["跨资产研究产物"],
-      "capabilities": ["实验索引", "契约与哈希核验", "HTML看板", "探索性v2适配", "只读实验登记库"],
+      "capabilities": ["实验索引", "契约与哈希核验", "HTML看板", "探索性v2适配", "只读实验登记库", "限定字段和取值的配对干预计划、三参考收益差分解"],
       "entrypoints": ["quant-lab scan/export html"], "contracts": ["standard/v1", "standard/v2"],
       "data_status": "五个新增应用七份产物的校验、索引、消费和损坏拒绝已验收；不提升为执行或市场认证",
       "gaps": ["新增数据及业务场景仍需逐项验收"], "evidence": ["README.md", "src/quant_lab/research_v2.py"]
@@ -150,8 +150,8 @@
       "id": "quant-report-hub", "layer": "reporting", "assets": ["权益组合", "价差", "标准研究产物"],
       "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示", "经原生账本核验的配对研究、三基准切换、分折净收益和回撤及残差展示"],
       "entrypoints": ["quant-report run", "quant-report cash-attribution", "quant-report dashboard/serve/daily-package --paired-evidence"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "quant-report-hub.paired-comparison/v1", "HTML报告"],
-      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行及新增27个反事实运行的原生现金证券账本精确对账通过。三折189日反事实看板及三基准切换完成真实历史输入GUI验收，失败阻断另以合成输入验收；548个冻结来源及账户文件未变",
-      "gaps": ["其他资产原生反事实与统一基准适配", "独立因果参考价滑点拆分", "现金预算与趋势等未识别因素的独立干预"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py", "quant_report_hub/paired_data.py", "quant_report_hub/paired_view.py"]
+      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行、六维27账本及现金缓冲/趋势两组30账本完成原生现金证券对账。189个共享历史日期的分折、干预曲线及三基准看板通过GUI检查，失败阻断另以合成输入验收；548个冻结来源及账户文件未变",
+      "gaps": ["其他资产原生反事实与统一基准适配", "独立因果参考价滑点拆分", "完整现金机会成本、候选池/持仓数量与跨维度交互的独立识别"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py", "quant_report_hub/paired_data.py", "quant_report_hub/paired_view.py"]
     },
     {
       "id": "quant-agent", "layer": "orchestration", "assets": ["研究产物"],
