@@ -148,10 +148,10 @@
     },
     {
       "id": "quant-report-hub", "layer": "reporting", "assets": ["权益组合", "价差", "标准研究产物"],
-      "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示"],
-      "entrypoints": ["quant-report run", "quant-report cash-attribution"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "HTML报告"],
-      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行及新增27个反事实运行的原生现金证券账本精确对账通过，冻结文件未变",
-      "gaps": ["跨应用统一基准及反事实研究展示", "独立因果参考价滑点拆分", "现金预算与趋势等未识别因素的独立干预"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py"]
+      "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示", "经原生账本核验的配对研究、三基准切换、分折净收益和回撤及残差展示"],
+      "entrypoints": ["quant-report run", "quant-report cash-attribution", "quant-report dashboard/serve/daily-package --paired-evidence"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "quant-report-hub.paired-comparison/v1", "HTML报告"],
+      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行及新增27个反事实运行的原生现金证券账本精确对账通过。三折189日反事实看板及三基准切换完成真实历史输入GUI验收，失败阻断另以合成输入验收；548个冻结来源及账户文件未变",
+      "gaps": ["其他资产原生反事实与统一基准适配", "独立因果参考价滑点拆分", "现金预算与趋势等未识别因素的独立干预"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py", "quant_report_hub/paired_data.py", "quant_report_hub/paired_view.py"]
     },
     {
       "id": "quant-agent", "layer": "orchestration", "assets": ["研究产物"],
