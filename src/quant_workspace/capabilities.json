@@ -148,10 +148,10 @@
     },
     {
       "id": "quant-report-hub", "layer": "reporting", "assets": ["权益组合", "价差", "标准研究产物"],
-      "capabilities": ["图表与交互报告", "收益和成本归因", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示"],
-      "entrypoints": ["quant-report run"], "contracts": ["standard/v1", "standard/v2", "HTML报告"],
-      "data_status": "消费声明明确的收益权重、成本金额和资本分母",
-      "gaps": ["跨应用统一基准展示", "真实研究逐日账本与反事实归因"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py"]
+      "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示"],
+      "entrypoints": ["quant-report run", "quant-report cash-attribution"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "HTML报告"],
+      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF四候选三折共12个测试运行的原生现金证券账本精确对账通过，冻结文件未变",
+      "gaps": ["跨应用统一基准展示", "独立因果参考价滑点拆分", "信号、配置、风险及现金反事实归因"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py"]
     },
     {
       "id": "quant-agent", "layer": "orchestration", "assets": ["研究产物"],
