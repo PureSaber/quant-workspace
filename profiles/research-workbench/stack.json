@@ -2,7 +2,7 @@
   "mode": "clean-local-commits",
   "repositories": {
     "quant-data-kit": {
-      "commit": "6ec373afae94daa572263501e2a3c5c586cb3271",
+      "commit": "1e582d2044ea9c2d517fe7b081ad839da427d983",
       "python_path": "src"
     },
     "quant-lab": {
@@ -22,7 +22,7 @@
       "python_path": "src"
     },
     "a-share-multifactor": {
-      "commit": "d76114bd06d0e7bb12550441da057e7272723d0f",
+      "commit": "5685259d367876d32350380e5ec3d4afce0de571",
       "python_path": "src"
     },
     "quant-report-hub": {
@@ -42,7 +42,7 @@
       "python_path": null
     },
     "quant-futures-spread": {
-      "commit": "3f1195acb5421f3c4e5b780a2c63bf567bf58ef4",
+      "commit": "4439a59370ed44169db6545b5df5a215ec436587",
       "python_path": null
     },
     "quant-crypto-basis": {
