@@ -1,6 +1,6 @@
 {
   "schema_version": "quant.capabilities/v1",
-  "as_of": "2026-10-03",
+  "as_of": "2026-10-04",
   "scope": "23个维护仓库的功能声明；证据指向实现，存在源码不等于运行或市场认证",
   "release_scopes": {
     "m8_runtime": {
@@ -57,19 +57,19 @@
     },
     {
       "id": "quant-us-equity", "layer": "application", "assets": ["美股", "美国ETF"],
-      "capabilities": ["ETF趋势", "股票多因子", "SEC基本面与事件", "现金分红账本", "v2适配", "连续样本外与同成本基准统一导出"],
-      "entrypoints": ["us-research demo/run/verify/fetch-sec/fetch-yahoo"], "contracts": ["研究bundle", "独立study.json", "standard/v2探索性导出"],
+      "capabilities": ["ETF趋势", "股票多因子", "SEC基本面与事件", "现金分红账本", "v2适配", "连续样本外与同成本基准统一导出", "数据包和静态研究配置的原生只读预检及Studio接入"],
+      "entrypoints": ["us-research demo/preflight/run/verify/fetch-sec/fetch-yahoo"], "contracts": ["研究bundle", "独立study.json", "standard/v2探索性导出", "quant-us-equity.preflight/v1"],
       "data_status": "私有应用；SEC样本已获取，真实价格链受源限流影响",
       "gaps": ["可用且口径明确的价格源", "历史成员与退市", "分红支付日证据"],
-      "evidence": ["README.md", "src/quant_us_equity/study.py"]
+      "evidence": ["README.md", "src/quant_us_equity/study.py", "src/quant_us_equity/preflight.py", ".github/workflows/studio-integration.yml"]
     },
     {
       "id": "quant-fund", "layer": "application", "assets": ["公募基金", "私募基金", "FOF"],
-      "capabilities": ["净值分析", "申赎与确认账本", "产品条款", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出"],
-      "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "基金研究报告", "standard/v2探索性导出"],
+      "capabilities": ["净值分析", "申赎与确认账本", "产品条款", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入"],
+      "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "基金研究报告", "standard/v2探索性导出", "quant-fund.preflight/v1"],
       "data_status": "已有公募真实净值样本；完整业务账本主要以合成输入验收",
       "gaps": ["真实条款与分红", "申赎确认银行日历", "私募授权业务材料"],
-      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py"]
+      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py"]
     },
     {
       "id": "quant-futures-spread", "layer": "application", "assets": ["期货价差"],
@@ -161,12 +161,12 @@
       "gaps": ["跨应用统一审查覆盖"], "evidence": ["README.md", "pyproject.toml"]
     },
     {
-      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合"],
-      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股和模拟盘原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验"],
+      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合", "基金/FOF", "美股/ETF"],
+      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股、模拟盘、基金和美股原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验", "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准"],
       "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
-      "data_status": "四个模板；统一首页、只读账户、港股真实快照及模拟盘合成信号的预检至运行已通过实际GUI验收，A股缺缓存明确拒绝；冻结账户未改变，运行环境就绪与数据可投资性分别展示",
-      "gaps": ["A股完整真实缓存的GUI流程验收", "其他资产模板与完整新手流程验收"],
-      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py"]
+      "data_status": "六个模板；港股真实快照、模拟盘以及基金/美股合成输入的预检至运行已完成GUI功能验收；基金/美股12份输入不变，参数及原生净值口径一致，美股显式基准不匹配被拒绝；基金嵌入报告控制台问题保留。A股缺缓存明确拒绝，环境就绪与数据可投资性分别展示",
+      "gaps": ["A股完整真实缓存的GUI流程验收", "其他资产模板与完整新手流程验收", "基金嵌入报告MutationObserver控制台错误来源尚未确定；直接报告无错误，图表与表格可用"],
+      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "integration/test_asset_upstream.py"]
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
@@ -220,6 +220,8 @@
     {"from": "quant-studio", "to": "a-share-multifactor", "contract": "显式本地CLI模板"},
     {"from": "quant-studio", "to": "quant-hk-equity", "contract": "显式本地CLI模板"},
     {"from": "quant-studio", "to": "quant-paper-sim", "contract": "显式本地CLI模板"},
+    {"from": "quant-studio", "to": "quant-fund", "contract": "独立Python的原生预检和研究CLI；单位净值、CNY及数据分类"},
+    {"from": "quant-studio", "to": "quant-us-equity", "contract": "独立Python的原生预检和研究CLI；USD账户、同日期基准及数据性质"},
     {"from": "quant-studio", "to": "quant-pipeline", "contract": "quant.research-paper-inspection/v1只读保存账户证据"},
     {"from": "quant-workspace", "to": "quant-pipeline", "contract": "路径与固定环境profile"},
     {"from": "quant-infra-workspace", "to": "quant-research-notes", "contract": "维护验收记录"}
