@@ -97,11 +97,11 @@
     },
     {
       "id": "quant-timing", "layer": "application", "assets": ["指数", "ETF", "期货仓位研究"],
-      "capabilities": ["指数仓位择时", "风格择时", "因果回放", "样本外门禁", "现金与成本计分", "原生只读预检与独立成本系数", "标准清单保护分折、来源与发布证据；Studio核验展示", "按原生期初净资产连接资产、现金、保证金、期货及两项模型成本；独立测试折与匹配敞口对照归因"],
-      "entrypoints": ["python -m quant_timing preflight/run/compare"], "contracts": ["standard/v1研究输出", "position_scale", "quant-timing.preflight/v1", "quant-timing.research-view/v1", "quant-timing.return-attribution/v1"],
-      "data_status": "12组历史比较、120折完成可加总账本归因，原收益指标保持一致；多数相对基准结果仍为负。真实四ETF与现金/期货/冲击合成GUI、分折展开及CSV下载已验收；91份原来源及3份合成GUI输入未变。描述性全区间与测试折分开，不拼接重叠折，未新增前向样本",
-      "gaps": ["账本贡献差不等于仓位或风格的独立反事实识别", "冲击模型与独立执行参考价校准、完整现金机会成本", "独立前向", "后续新假设的预登记与多重试验控制"],
-      "evidence": ["README.md", "src/quant_timing/contract.py", "src/quant_timing/preflight.py", "src/quant_timing/export.py", "src/quant_timing/attribution.py"]
+      "capabilities": ["指数仓位择时", "风格择时", "因果回放", "样本外门禁", "现金与成本计分", "原生只读预检与独立成本系数", "标准清单保护分折、来源与发布证据；Studio核验展示", "按原生期初净资产连接资产、现金、保证金、期货及两项模型成本；独立测试折与匹配敞口对照归因", "固定仓位模型与风格倾斜反事实、联合交互、分量差对账；候选失败阻断、全部候选禁发下游仓位及原生HTML报告"],
+      "entrypoints": ["python -m quant_timing preflight/run/compare", "python -m quant_timing counterfactual/verify-counterfactual"], "contracts": ["standard/v1研究输出", "position_scale", "quant-timing.preflight/v1", "quant-timing.research-view/v1", "quant-timing.return-attribution/v1", "quant-timing.counterfactual/v1"],
+      "data_status": "12组历史比较、120折完成可加总账本归因及Studio展示；另完成固定仓位/风格反事实的32个原生候选，108份基线CSV和12份摘要精确复现，197份原输入与产物未变。146项原生测试及原生HTML的分折、分量、CSV、失败阻断和宽窄屏GUI通过。反事实尚未增加Studio模板；全部候选禁发下游仓位，历史样本已被观察，不拼接重叠折、不新增前向证据",
+      "gaps": ["限定模型干预不能推广为真实因果或新增前向；反事实尚未接入Studio模板", "冲击模型与独立执行参考价校准、完整现金机会成本", "独立前向", "后续新假设的预登记与多重试验控制"],
+      "evidence": ["README.md", "src/quant_timing/contract.py", "src/quant_timing/preflight.py", "src/quant_timing/export.py", "src/quant_timing/attribution.py", "src/quant_timing/counterfactual.py", "docs/COUNTERFACTUALS.md"]
     },
     {
       "id": "quant-regime", "layer": "research", "assets": ["通用市场价格序列"],
