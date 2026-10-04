@@ -119,11 +119,11 @@
     },
     {
       "id": "quant-risk-monitor", "layer": "portfolio-risk", "assets": ["跨资产组合"],
-      "capabilities": ["VaR/CVaR", "压力与流动性检查", "因子风险", "事前风险门禁"],
-      "entrypoints": ["quant-risk check", "Python API"], "contracts": ["风险告警和指标", "PIT风险输入"],
-      "data_status": "线性风险框架和统计代理可用；未声明完整Barra",
+      "capabilities": ["VaR/CVaR", "压力与流动性检查", "因子风险", "事前风险门禁", "期初可得输入的逐期风险预测与成熟收益校验；组合、主动及单资产总方差评分；完整输入重算和零方差保留"],
+      "entrypoints": ["quant-risk check", "quant-risk validate-forecasts/verify-forecasts", "Python API"], "contracts": ["风险告警和指标", "PIT风险输入", "quant-risk.forecast-study/v1", "quant-risk.factor-forecast/v1", "quant-risk.forecast-evaluation/v1", "quant-risk.forecast-run/v1"],
+      "data_status": "线性风险框架和统计代理可用；四ETF固定等权参考组合完成189期、1134项评分，逐期模型与ASM原生路径精确一致，35份来源不变。组合bias statistic为1.0633，主动风险为1.3078；单资产存在明显尺度差异，未声明校准通过。评价重用既有历史，非原策略账户净收益，不增加独立前向；未声明完整Barra",
       "gaps": ["宽截面PIT风格行业", "特异风险校准", "ETF穿透", "独立样本外验证"],
-      "evidence": ["README.md", "pyproject.toml"]
+      "evidence": ["README.md", "pyproject.toml", "src/quant_risk_monitor/risk_validation.py", "docs/RISK_FORECAST_VALIDATION.md", "examples/risk_forecast_study.json"]
     },
     {
       "id": "quant-paper-sim", "layer": "execution", "assets": ["股票和ETF模拟组合"],
