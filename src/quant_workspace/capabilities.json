@@ -18,7 +18,7 @@
       "entrypoints": ["qdk-validate", "qdk-catalog", "python -m quant_data_kit"],
       "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格", "puresaber.dividend-lifecycle/1", "puresaber.pit-fx/1"],
       "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
-      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红契约已接入QExec；HK显式适配、分钟来源时间准入、完整历史与账户实际到账未认证"],
+      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红契约已接入QExec和HK显式离线场景；分钟来源时间准入、完整历史与账户实际到账未认证"],
       "evidence": ["README.md", "pyproject.toml", "src/quant_data_kit/financial/dividends.py", "src/quant_data_kit/financial/fx.py", "tests/test_dividend_lifecycle.py"]
     },
     {
@@ -35,7 +35,7 @@
       "capabilities": ["确定性撮合", "精确现金与持仓账本", "市场专属费用交收", "风险门禁", "分红权益、发行人换汇和实际付款三阶段及幂等/回滚", "整户精确聚合、证据化政策和全账户PIT估值", "封存快照导出、顺序业务事实回放与失败目录拒绝"],
       "entrypoints": ["Python API"], "contracts": ["OrderIntent", "FixedPoint账本", "standard/v2执行事实", "puresaber.execution.dividend-record/1", "puresaber.execution.replay-artifact-manifest/1.1.0"],
       "data_status": "离线模拟执行；规则有效性取决于输入证据",
-      "gaps": ["真实市场规则与独立双腿验收", "HK生命周期显式接入与真实权益/政策/到账；软件验证不认证完整市场准入", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml", "src/quant_execution/dividends.py", "src/quant_execution/artifacts.py", "tests/test_dividend_lifecycle.py", "tests/test_dividend_artifacts.py"]
+      "gaps": ["真实市场规则与独立双腿验收", "HK生命周期离线场景已接入；真实权益/政策/到账及完整市场准入未认证", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml", "src/quant_execution/dividends.py", "src/quant_execution/artifacts.py", "tests/test_dividend_lifecycle.py", "tests/test_dividend_artifacts.py"]
     },
     {
       "id": "a-share-multifactor", "layer": "application",
@@ -49,11 +49,11 @@
     },
     {
       "id": "quant-hk-equity", "layer": "application", "assets": ["港股", "港股ETF"],
-      "capabilities": ["真实日线研究", "整手与费用", "现金交收", "公司行动及v2适配", "带收益口径的统一绩效导出"],
-      "entrypoints": ["quant-hk fetch/preflight/run"], "contracts": ["quant-hk-study/v1", "quant-hk-study/v2", "standard/v1", "standard/v2探索性导出"],
-      "data_status": "既有真实研究为价格收益；公司行动v2已做合成验收",
-      "gaps": ["完整真实公司行动", "历史整手与交易状态", "真实交收日历"],
-      "evidence": ["README.md", "src/quant_hk_equity/research.py", "src/quant_hk_equity/actions.py"]
+      "capabilities": ["真实日线研究", "整手与费用", "现金交收", "公司行动及v2适配", "带收益口径的统一绩效导出", "独立固定栈的分红场景：训练价格选择冻结、阶段事实PIT裁剪、UTC账户时间线与T+2交收", "分红权益、发行人换汇、实际付款及多币种全账户估值；实际到账与未到账声明互斥", "规范生命周期摘要与全场景实例ID校验、真实依赖模块/文件/原始Git内容绑定、原生磁盘重放与失败拒绝"],
+      "entrypoints": ["quant-hk fetch/preflight/run", "quant-hk dividend-scenario"], "contracts": ["quant-hk-study/v1", "quant-hk-study/v2", "standard/v1", "standard/v2探索性导出", "quant-hk-dividend-scenario/v1", "quant-hk-dividend-scenario-result/v1"],
+      "data_status": "既有真实研究仍为181日探索性价格收益。新分红场景在独立锁定栈完成离线软件验证及磁盘重放；默认v1/v2每版73份业务文件与基线逐字节相同。场景不输出Lab排名产品，investable/rankable/market_admission_certified均为false；未新增Studio模板、市场回测或独立前向。29条HKEX分钟索引仍只按captured_only处理",
+      "gaps": ["完整真实公司行动与历史股票池", "历史整手、费用与交易状态", "真实交收日历", "可信历史发布时间、真实账户权益、持有人税费政策及实际净到账"],
+      "evidence": ["README.md", "src/quant_hk_equity/research.py", "src/quant_hk_equity/actions.py", "src/quant_hk_equity/dividend_scenario.py", "scenario_tests/test_dividend_scenario.py", "stack.dividend-scenario.lock"]
     },
     {
       "id": "quant-us-equity", "layer": "application", "assets": ["美股", "美国ETF"],
@@ -257,7 +257,7 @@
   ],
   "relationships": [
     {"from": "quant-data-kit", "to": "a-share-multifactor", "contract": "原始和复权行情、PIT主表快照"},
-    {"from": "quant-data-kit", "to": "quant-hk-equity", "contract": "港股行情快照与日历"},
+    {"from": "quant-data-kit", "to": "quant-hk-equity", "contract": "港股行情快照与日历；独立场景栈显式消费dividend-lifecycle/1和pit-fx/1，规范指纹校验不认证外部来源"},
     {"from": "quant-data-kit", "to": "quant-us-equity", "contract": "美股价格和SEC研究bundle"},
     {"from": "quant-data-kit", "to": "quant-futures-spread", "contract": "期货事件与证券规格"},
     {"from": "quant-data-kit", "to": "quant-crypto-basis", "contract": "Crypto事件与证券规格"},
@@ -265,7 +265,7 @@
     {"from": "quant-factors", "to": "quant-hk-equity", "contract": "动量和波动率"},
     {"from": "quant-factors", "to": "quant-us-equity", "contract": "共享价格因子"},
     {"from": "quant-execution", "to": "a-share-multifactor", "contract": "确定性撮合与账本"},
-    {"from": "quant-execution", "to": "quant-hk-equity", "contract": "港股现金账户"},
+    {"from": "quant-execution", "to": "quant-hk-equity", "contract": "港股现金账户；独立场景栈消费三阶段分红、PIT多币种估值与完整事实回放，HK另核订单及待交收资金"},
     {"from": "quant-execution", "to": "quant-us-equity", "contract": "美国现金账户"},
     {"from": "quant-execution", "to": "quant-futures-spread", "contract": "双腿fixture执行"},
     {"from": "quant-execution", "to": "quant-crypto-basis", "contract": "双腿fixture执行"},
@@ -275,7 +275,7 @@
     {"from": "quant-regime", "to": "quant-portfolio", "contract": "经验证的position_scale"},
     {"from": "quant-pipeline", "to": "a-share-multifactor", "contract": "研究配方、滚动验证和前向观察"},
     {"from": "a-share-multifactor", "to": "quant-lab", "contract": "standard/v2"},
-    {"from": "quant-hk-equity", "to": "quant-lab", "contract": "standard/v1及探索性standard/v2"},
+    {"from": "quant-hk-equity", "to": "quant-lab", "contract": "默认研究的standard/v1及探索性standard/v2；新dividend-scenario不输出Lab排名产品"},
     {"from": "quant-us-equity", "to": "quant-lab", "contract": "探索性standard/v2"},
     {"from": "quant-fund", "to": "quant-lab", "contract": "探索性standard/v2"},
     {"from": "quant-stat-arb", "to": "quant-lab", "contract": "standard/v1研究列约定；真实价格回放产物消费已验收"},
