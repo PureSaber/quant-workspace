@@ -161,12 +161,73 @@
       "gaps": ["跨应用统一审查覆盖"], "evidence": ["README.md", "pyproject.toml"]
     },
     {
-      "id": "quant-studio", "layer": "interface", "assets": ["A股", "港股", "模拟组合", "基金/FOF", "美股/ETF", "期货双腿离线样例", "Crypto基差离线样例", "统计套利研究", "指数与风格择时"],
-      "capabilities": ["统一总览", "本地模板向导", "配置预览", "A股、港股、模拟盘、基金、美股、统计套利、择时及期货/Crypto离线样例原生只读数据预检", "相同参数显式运行", "运行与报告入口", "明确配置账户的只读核验", "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准", "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金", "已有研究配置文件与原生权重、收益比例费用展示", "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载"],
-      "entrypoints": ["python -m quant_studio serve/check"], "contracts": ["模板请求", "隔离运行目录", "quant-studio.accounts/v1", "quant.research-paper-inspection/v1"],
-      "data_status": "十一个模板、十个业务预检入口；择时支持资产、现金、期货和模型成本归因，以及固定仓位/风格反事实的候选状态、分折效应、联合交互和分量差。所选上游Python重算核验，页面及下载再次检查完整原生文件集合；必需候选失败时无家族结论，所有反事实候选禁发仓位。181项单测、7组原生集成、真实与合成GUI及1280/390像素布局通过。真实四候选11区间、37份CSV与既有结果一致，7份来源未变。基金嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证或新增独立前向",
-      "gaps": ["A股完整真实缓存的GUI流程验收", "完整新手流程及新增业务场景验收", "基金嵌入报告MutationObserver控制台错误来源尚未确定；直接报告无错误，图表与表格可用"],
-      "evidence": ["README.md", "src/quant_studio/runner.py", "src/quant_studio/accounts.py", "src/quant_studio/server.py", "src/quant_studio/standard_view.py", "src/quant_studio/timing_view.py", "src/quant_studio/timing_attribution_panel.py", "src/quant_studio/counterfactual_view.py", "src/quant_studio/counterfactual_panel.py", "integration/test_asset_upstream.py", "integration/test_fixture_upstream.py", "integration/test_stat_arb_upstream.py", "integration/test_timing_upstream.py", "integration/test_timing_counterfactual.py", "src/quant_studio/templates/stat-arb-research/template.json", "src/quant_studio/templates/timing-research/template.json", "src/quant_studio/templates/timing-counterfactual/template.json"]
+      "id": "quant-studio",
+      "layer": "interface",
+      "assets": [
+        "A股",
+        "港股",
+        "模拟组合",
+        "基金/FOF",
+        "美股/ETF",
+        "期货双腿离线样例",
+        "Crypto基差离线样例",
+        "统计套利研究",
+        "指数与风格择时"
+      ],
+      "capabilities": [
+        "统一总览",
+        "首次配置的校验预览、显式保存及重启恢复；请求级快照隔离与所选Python脚本目录解析",
+        "本地模板向导",
+        "配置预览",
+        "A股、港股、模拟盘、基金、美股、统计套利、择时及期货/Crypto离线样例原生只读数据预检",
+        "相同参数显式运行",
+        "运行与报告入口",
+        "明确配置账户的只读核验",
+        "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准",
+        "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金",
+        "已有研究配置文件与原生权重、收益比例费用展示",
+        "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载"
+      ],
+      "entrypoints": [
+        "python -m quant_studio serve/check"
+      ],
+      "contracts": [
+        "模板请求",
+        "隔离运行目录",
+        "quant-studio.accounts/v1",
+        "quant.research-paper-inspection/v1",
+        "quant-studio.settings/v1"
+      ],
+      "data_status": "十一个模板、十个业务预检入口；择时支持资产、现金、期货和模型成本归因，以及固定仓位/风格反事实的候选状态、分折效应、联合交互和分量差。所选上游Python重算核验，页面及下载再次检查完整原生文件集合；必需候选失败时无家族结论，所有反事实候选禁发仓位。207项单测、Windows/Linux上游集成、真实与合成GUI及1280/390像素布局通过。真实四候选11区间、37份CSV与既有结果一致，7份来源未变。基金及港股嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证或新增独立前向。首次配置从空配置、合成运行到既有真实港股预检与同参数运行已验收；配置重启恢复及并发旧请求隔离通过，8份真实输入保持不变，89份产物核验通过；向导路径检查不替代原生数据预检",
+      "gaps": [
+        "A股完整真实缓存的GUI流程验收",
+        "首次安装依赖和已有账户来源文件仍需准备；新增业务场景逐项验收",
+        "基金及港股嵌入报告MutationObserver宿主兼容问题未解决；不声明控制台无错误"
+      ],
+      "evidence": [
+        "README.md",
+        "src/quant_studio/runner.py",
+        "src/quant_studio/accounts.py",
+        "src/quant_studio/server.py",
+        "src/quant_studio/standard_view.py",
+        "src/quant_studio/timing_view.py",
+        "src/quant_studio/timing_attribution_panel.py",
+        "src/quant_studio/counterfactual_view.py",
+        "src/quant_studio/counterfactual_panel.py",
+        "integration/test_asset_upstream.py",
+        "integration/test_fixture_upstream.py",
+        "integration/test_stat_arb_upstream.py",
+        "integration/test_timing_upstream.py",
+        "integration/test_timing_counterfactual.py",
+        "src/quant_studio/templates/stat-arb-research/template.json",
+        "src/quant_studio/templates/timing-research/template.json",
+        "src/quant_studio/templates/timing-counterfactual/template.json",
+        "src/quant_studio/setup.py",
+        "src/quant_studio/settings.py",
+        "tests/test_setup.py",
+        "tests/test_runtime_profiles.py",
+        "integration/test_setup_upstream.py"
+      ]
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
