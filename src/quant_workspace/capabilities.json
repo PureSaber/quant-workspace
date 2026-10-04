@@ -184,6 +184,7 @@
         "运行与报告入口",
         "明确配置账户的只读核验",
         "单位净值与账户金额分别处理期初基准、数据性质和同日期美股基准",
+        "港股原生同池等权基准与策略累计收益双曲线、区间收益差及两份CSV；收集与展示检查同日期和期初本金",
         "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金",
         "已有研究配置文件与原生权重、收益比例费用展示",
         "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载"
@@ -198,7 +199,7 @@
         "quant.research-paper-inspection/v1",
         "quant-studio.settings/v1"
       ],
-      "data_status": "十一个模板、十个业务预检入口；择时支持资产、现金、期货和模型成本归因，以及固定仓位/风格反事实的候选状态、分折效应、联合交互和分量差。所选上游Python重算核验，页面及下载再次检查完整原生文件集合；必需候选失败时无家族结论，所有反事实候选禁发仓位。207项单测、Windows/Linux上游集成、真实与合成GUI及1280/390像素布局通过。真实四候选11区间、37份CSV与既有结果一致，7份来源未变。基金及港股嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证或新增独立前向。首次配置从空配置、合成运行到既有真实港股预检与同参数运行已验收；配置重启恢复及并发旧请求隔离通过，8份真实输入保持不变，89份产物核验通过；向导路径检查不替代原生数据预检",
+      "data_status": "十一个模板、十个业务预检入口；择时支持资产、现金、期货和模型成本归因，以及固定仓位/风格反事实的候选状态、分折效应、联合交互和分量差。所选上游Python重算核验，页面及下载再次检查完整原生文件集合；必需候选失败时无家族结论，所有反事实候选禁发仓位。214项单测、Windows/Linux上游集成、真实与合成GUI及1280/390像素布局通过。真实四候选11区间、37份CSV与既有结果一致，7份来源未变。基金及港股嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证或新增独立前向。首次配置从空配置、合成运行到既有真实港股预检与同参数运行已验收；配置重启恢复及并发旧请求隔离通过，8份真实输入保持不变，89份产物核验通过；向导路径检查不替代原生数据预检；港股同池基准比较已独立复核181日双曲线、89份原生产物和5个标准情景，实际CSV下载匹配，8来源未变，收益口径不提升为市场认证",
       "gaps": [
         "A股完整真实缓存的GUI流程验收",
         "首次安装依赖和已有账户来源文件仍需准备；新增业务场景逐项验收",
@@ -209,6 +210,8 @@
         "src/quant_studio/runner.py",
         "src/quant_studio/accounts.py",
         "src/quant_studio/server.py",
+        "src/quant_studio/nav.py",
+        "tests/test_hk_benchmark.py",
         "src/quant_studio/standard_view.py",
         "src/quant_studio/timing_view.py",
         "src/quant_studio/timing_attribution_panel.py",
@@ -279,7 +282,7 @@
     {"from": "quant-lab", "to": "quant-report-hub", "contract": "经过验证的标准研究产物"},
     {"from": "quant-pipeline", "to": "quant-agent", "contract": "运行后复核"},
     {"from": "quant-studio", "to": "a-share-multifactor", "contract": "显式本地CLI模板"},
-    {"from": "quant-studio", "to": "quant-hk-equity", "contract": "显式本地CLI模板"},
+    {"from": "quant-studio", "to": "quant-hk-equity", "contract": "显式本地CLI模板；直接收集原生策略及同池等权基准，按同日期和期初HKD本金比较，保留各自费用及探索性边界"},
     {"from": "quant-studio", "to": "quant-paper-sim", "contract": "显式本地CLI模板"},
     {"from": "quant-studio", "to": "quant-fund", "contract": "独立Python的原生预检和研究CLI；单位净值、CNY及数据分类"},
     {"from": "quant-studio", "to": "quant-timing", "contract": "独立Python的原生预检和研究CLI；受保护分折与发布证据，描述性策略/基准和单位本金CSV；固定反事实候选族原生重算、完整文件集合绑定、失败阻断与全部候选禁发仓位"},
