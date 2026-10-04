@@ -14,12 +14,12 @@
     {
       "id": "quant-data-kit", "layer": "data",
       "assets": ["A股", "ETF", "港股", "美股", "基金", "期货", "Crypto"],
-      "capabilities": ["数据采集与校验", "不可变快照", "历史主表与可得时间", "L2标准化及认证工具"],
+      "capabilities": ["数据采集与校验", "不可变快照", "历史主表与可得时间", "L2标准化及认证工具", "版本化分红生命周期与PIT汇率契约；源单位/精度、经济与可得时间、账户税费政策及精确现金守恒"],
       "entrypoints": ["qdk-validate", "qdk-catalog", "python -m quant_data_kit"],
-      "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格"],
+      "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格", "puresaber.dividend-lifecycle/1", "puresaber.pit-fx/1"],
       "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
-      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2"],
-      "evidence": ["README.md", "pyproject.toml"]
+      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红新契约尚待QExec/HK接入；完整历史与账户实际到账未认证"],
+      "evidence": ["README.md", "pyproject.toml", "src/quant_data_kit/financial/dividends.py", "src/quant_data_kit/financial/fx.py", "tests/test_dividend_lifecycle.py"]
     },
     {
       "id": "quant-factors", "layer": "research",
