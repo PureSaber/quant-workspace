@@ -18,7 +18,7 @@
       "entrypoints": ["qdk-validate", "qdk-catalog", "python -m quant_data_kit"],
       "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格", "puresaber.dividend-lifecycle/1", "puresaber.pit-fx/1"],
       "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
-      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红新契约尚待QExec/HK接入；完整历史与账户实际到账未认证"],
+      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红契约已接入QExec；HK显式适配、分钟来源时间准入、完整历史与账户实际到账未认证"],
       "evidence": ["README.md", "pyproject.toml", "src/quant_data_kit/financial/dividends.py", "src/quant_data_kit/financial/fx.py", "tests/test_dividend_lifecycle.py"]
     },
     {
@@ -32,10 +32,10 @@
     {
       "id": "quant-execution", "layer": "execution",
       "assets": ["A股", "ETF", "港股", "美股", "期货", "Crypto"],
-      "capabilities": ["确定性撮合", "精确现金与持仓账本", "市场专属费用交收", "风险门禁"],
-      "entrypoints": ["Python API"], "contracts": ["OrderIntent", "FixedPoint账本", "standard/v2执行事实"],
+      "capabilities": ["确定性撮合", "精确现金与持仓账本", "市场专属费用交收", "风险门禁", "分红权益、发行人换汇和实际付款三阶段及幂等/回滚", "整户精确聚合、证据化政策和全账户PIT估值", "封存快照导出、顺序业务事实回放与失败目录拒绝"],
+      "entrypoints": ["Python API"], "contracts": ["OrderIntent", "FixedPoint账本", "standard/v2执行事实", "puresaber.execution.dividend-record/1", "puresaber.execution.replay-artifact-manifest/1.1.0"],
       "data_status": "离线模拟执行；规则有效性取决于输入证据",
-      "gaps": ["真实市场规则与独立双腿验收", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml"]
+      "gaps": ["真实市场规则与独立双腿验收", "HK生命周期显式接入与真实权益/政策/到账；软件验证不认证完整市场准入", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml", "src/quant_execution/dividends.py", "src/quant_execution/artifacts.py", "tests/test_dividend_lifecycle.py", "tests/test_dividend_artifacts.py"]
     },
     {
       "id": "a-share-multifactor", "layer": "application",
