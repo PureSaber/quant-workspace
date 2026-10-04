@@ -65,11 +65,11 @@
     },
     {
       "id": "quant-fund", "layer": "application", "assets": ["公募基金", "私募基金", "FOF"],
-      "capabilities": ["净值分析", "申赎与确认账本", "产品条款", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入"],
-      "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "基金研究报告", "standard/v2探索性导出", "quant-fund.preflight/v1"],
-      "data_status": "已有公募真实净值样本；完整业务账本主要以合成输入验收",
-      "gaps": ["真实条款与分红", "申赎确认银行日历", "私募授权业务材料"],
-      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py"]
+      "capabilities": ["净值分析", "申赎与确认账本", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入", "按生效区间与获知时间选择历史分类和条款；订单冻结申请日版本、申购批次锁定期及费用", "从完整归档输入复核版本、日历、净值与逐笔费用；拒绝重签后的重复订单及数值归一冲突，兼容旧静态报告"],
+      "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "quant-fund.research-run@2", "quant-fund.research-run@1旧静态兼容", "standard/v2探索性导出", "quant-fund.preflight/v1"],
+      "data_status": "已有公募真实净值样本；历史条款软件完成68项测试及双平台CI。独立合成运行核验50文件和15笔条款绑定，旧静态报告37文件兼容；7份样本文件未变。条款能力不证明真实合同版本完整性或实际获知时点，不增加独立前向",
+      "gaps": ["真实条款与分红及实际获知时间", "真实申赎确认银行日历和逐笔人工对账", "私募授权业务材料", "名称历史未实现；ETF、外币及PE/VC范围未扩展"],
+      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py", "src/quant_fund/terms.py", "src/quant_fund/engine.py", "tests/test_historical_terms.py", "docs/DATA_CONTRACT.md"]
     },
     {
       "id": "quant-futures-spread", "layer": "application", "assets": ["期货价差"],
