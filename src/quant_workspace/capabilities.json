@@ -148,10 +148,10 @@
     },
     {
       "id": "quant-report-hub", "layer": "reporting", "assets": ["权益组合", "价差", "标准研究产物"],
-      "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示", "经原生账本核验的配对研究、三基准切换、分折净收益和回撤及残差展示"],
-      "entrypoints": ["quant-report run", "quant-report cash-attribution", "quant-report dashboard/serve/daily-package --paired-evidence"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "quant-report-hub.paired-comparison/v1", "HTML报告"],
-      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行、六维27账本及现金缓冲/趋势两组30账本完成原生现金证券对账。189个共享历史日期的分折、干预曲线及三基准看板通过GUI检查，失败阻断另以合成输入验收；548个冻结来源及账户文件未变",
-      "gaps": ["其他资产原生反事实与统一基准适配", "独立因果参考价滑点拆分", "完整现金机会成本、候选池/持仓数量与跨维度交互的独立识别"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py", "quant_report_hub/paired_data.py", "quant_report_hub/paired_view.py"]
+      "capabilities": ["图表与交互报告", "收益和成本归因", "现金证券逐事件及期间账本归因、分红应收与原生费用核对", "订单首次接受时已可得中点报价的有符号成交价差、舍入及期间/证券对账；来源绑定与报告原生重算", "本地受限证据服务", "带数据性质、区间及年化口径的实验对比", "完整候选、家族缺失与失败重试历史展示", "经原生账本核验的配对研究、三基准切换、分折净收益和回撤及残差展示"],
+      "entrypoints": ["quant-report run", "quant-report cash-attribution", "quant-report cash-price-bridge/verify-cash-price-bridge", "quant-report dashboard/serve/daily-package --paired-evidence"], "contracts": ["standard/v1", "standard/v2", "quant-report-hub.cash-ledger-attribution/v1", "quant-report-hub.execution-references/v1", "quant-report-hub.cash-price-bridge/v1", "quant-report-hub.paired-comparison/v1", "HTML报告"],
+      "data_status": "消费声明明确的收益权重、成本金额和资本分母；ETF原12个测试运行、六维27账本及现金缓冲/趋势两组30账本完成原生现金证券对账。189个共享历史日期的分折、干预曲线及三基准看板通过GUI检查，548个冻结来源及账户文件未变。随后独立报价成交价差功能通过265项测试、四次CLI及宽窄屏GUI；合成样本正负损益守恒，真实ETF账本缺报价时拒绝报告。真实报价与成本校准尚未完成，未接入Studio新模板",
+      "gaps": ["其他资产原生反事实与统一基准适配", "真实独立报价来源及成交价差/冲击校准；有符号现金证券软件能力已完成", "完整现金机会成本、候选池/持仓数量与跨维度交互的独立识别"], "evidence": ["README.md", "pyproject.toml", "quant_report_hub/cash_attribution.py", "quant_report_hub/cash_price_bridge.py", "quant_report_hub/execution_references.py", "docs/CASH_PRICE_BRIDGE.md", "quant_report_hub/research_workbench.py", "quant_report_hub/research_evidence.py", "quant_report_hub/paired_data.py", "quant_report_hub/paired_view.py"]
     },
     {
       "id": "quant-agent", "layer": "orchestration", "assets": ["研究产物"],
