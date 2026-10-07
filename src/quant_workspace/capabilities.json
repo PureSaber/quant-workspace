@@ -1,6 +1,6 @@
 {
   "schema_version": "quant.capabilities/v1",
-  "as_of": "2026-10-04",
+  "as_of": "2026-10-07",
   "scope": "23个维护仓库的功能声明；证据指向实现，存在源码不等于运行或市场认证",
   "release_scopes": {
     "m8_runtime": {
@@ -65,9 +65,9 @@
     },
     {
       "id": "quant-fund", "layer": "application", "assets": ["公募基金", "私募基金", "FOF"],
-      "capabilities": ["净值分析", "申赎与确认账本", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入", "按生效区间与获知时间选择历史分类和条款；订单冻结申请日版本、申购批次锁定期及费用", "从完整归档输入复核版本、日历、净值与逐笔费用；拒绝重签后的重复订单及数值归一冲突，兼容旧静态报告"],
+      "capabilities": ["净值分析", "申赎与确认账本", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入", "按生效区间与获知时间选择历史分类和条款；订单冻结申请日版本、申购批次锁定期及费用", "从完整归档输入复核版本、日历、净值与逐笔费用；拒绝重签后的重复订单及数值归一冲突，兼容旧静态报告", "request_id幂等提交、冲突拒绝、日推进与提交失败回滚、冻结金额及份额守恒", "完整归档订单与条款的逐日账本重放核验", "公募现金分红净值再投资；累计净值独立现金核对与不支持拆分拒绝", "原生报告viewport、中文表头、局部键盘横滚与复现信息换行"],
       "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "quant-fund.research-run@2", "quant-fund.research-run@1旧静态兼容", "standard/v2探索性导出", "quant-fund.preflight/v1"],
-      "data_status": "已有公募真实净值样本；历史条款软件完成68项测试及双平台CI。独立合成运行核验50文件和15笔条款绑定，旧静态报告37文件兼容；7份样本文件未变。条款能力不证明真实合同版本完整性或实际获知时点，不增加独立前向",
+      "data_status": "93项测试、Linux/WindowsCI及Studio原生集成通过；四公募13386条公开净值按份额再投资独立复核，入库导出、幂等重试及旧快照冲突回滚通过。新的宽窄屏报告及合成申赎软件闭环已验收，13份经济输出逐字节一致。当前采集日不是历史披露可得日，真实历史条款、权益与实际到账仍未认证",
       "gaps": ["真实条款与分红及实际获知时间", "真实申赎确认银行日历和逐笔人工对账", "私募授权业务材料", "名称历史未实现；ETF、外币及PE/VC范围未扩展"],
       "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py", "src/quant_fund/terms.py", "src/quant_fund/engine.py", "tests/test_historical_terms.py", "docs/DATA_CONTRACT.md"]
     },
@@ -127,9 +127,9 @@
     },
     {
       "id": "quant-paper-sim", "layer": "execution", "assets": ["股票和ETF模拟组合"],
-      "capabilities": ["持仓及净值更新", "风控缩放", "幂等模拟账本", "信号、配置与保存状态前置条件的独立只读预检"],
-      "entrypoints": ["quant-paper step/preflight"], "contracts": ["holdings.csv", "nav.csv", "风控来源配置", "quant.paper-preflight/v1"],
-      "data_status": "研究模拟；配置的风控来源不可读或非法即停止",
+      "capabilities": ["持仓及净值更新", "风控缩放", "幂等模拟账本", "信号、配置与保存状态前置条件的独立只读预检", "权威日志与全部投影只读核验", "独立备份及空目录恢复；完整嵌套归档哈希、版本和规则核验", "真实独立进程中断、锁释放及幂等重试验收"],
+      "entrypoints": ["quant-paper init/step/status/preflight/verify/backup/restore"], "contracts": ["holdings.csv", "nav.csv", "风控来源配置", "quant.paper-preflight/v1"],
+      "data_status": "研究模拟；171项测试及覆盖门禁、主线CI通过；4项Windows条件跳过。配置的风控来源不可读或非法即停止；Studio成功显示绑定的原生重放核验，失败保留诊断。软件恢复不构成真实交易或自然前向认证",
       "gaps": ["完整真实交易规则与前向证据"], "evidence": ["README.md", "pyproject.toml"]
     },
     {
@@ -188,7 +188,11 @@
         "港股原生同池等权基准与策略累计收益双曲线、区间收益差及两份CSV；收集与展示检查同日期和期初本金",
         "在独立上游环境核验standard/v2后展示事件净值、保证金及完整账本CSV，保留毫秒和精确本金",
         "已有研究配置文件与原生权重、收益比例费用展示",
-        "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载"
+        "择时分折及发布状态、描述性策略与基准曲线、证据变化拒绝和完整CSV下载",
+        "A股缓存根目录选择；预检及回测绑定同一原生--data-dir，缺输入阻断",
+        "基金与模拟盘原生账本核验、失败残留隔离、中断诊断和按参数重新预检",
+        "成功原生报告独立打开；中文持仓数值、用途语义及窄屏展示",
+        "模板精确上游提交与公共CI矩阵一致性检查"
       ],
       "entrypoints": [
         "python -m quant_studio serve/check"
@@ -200,11 +204,11 @@
         "quant.research-paper-inspection/v1",
         "quant-studio.settings/v1"
       ],
-      "data_status": "十一个模板、十个业务预检入口；择时支持资产、现金、期货和模型成本归因，以及固定仓位/风格反事实的候选状态、分折效应、联合交互和分量差。所选上游Python重算核验，页面及下载再次检查完整原生文件集合；必需候选失败时无家族结论，所有反事实候选禁发仓位。214项单测、Windows/Linux上游集成、真实与合成GUI及1280/390像素布局通过。真实四候选11区间、37份CSV与既有结果一致，7份来源未变。基金及港股嵌入控制台问题与A股完整真实缓存GUI仍待完成；不提升真实市场认证或新增独立前向。首次配置从空配置、合成运行到既有真实港股预检与同参数运行已验收；配置重启恢复及并发旧请求隔离通过，8份真实输入保持不变，89份产物核验通过；向导路径检查不替代原生数据预检；港股同池基准比较已独立复核181日双曲线、89份原生产物和5个标准情景，实际CSV下载匹配，8来源未变，收益口径不提升为市场认证",
+      "data_status": "11模板、10业务预检；239项单测与26项原生集成通过。十套新Python3.12.13应用环境依赖闭包通过，保存及重启后10入口路径就绪，A股真实缓存仍待输入。桌面和390像素验证缓存选择、缺文件预检拒绝、环境展示；原有30份GUI文件哈希不变。软件样例验收不认证真实金融业务、投资效力或23仓最新源码统一环境；各应用冻结依赖分别保留。报告嵌入宿主异常继续暂缓，独立报告可用",
       "gaps": [
-        "A股完整真实缓存的GUI流程验收",
-        "首次安装依赖和已有账户来源文件仍需准备；新增业务场景逐项验收",
-        "基金及港股嵌入报告MutationObserver宿主兼容问题未解决；不声明控制台无错误"
+        "A股完整真实历史PIT缓存及业务GUI验收暂缓",
+        "真实账户来源和新增业务场景按独立资料验收；ETF自动化保持PAUSED",
+        "基金及港股嵌入报告MutationObserver宿主兼容问题暂缓，具体注入来源与调用栈尚未确认"
       ],
       "evidence": [
         "README.md",
@@ -230,7 +234,10 @@
         "src/quant_studio/settings.py",
         "tests/test_setup.py",
         "tests/test_runtime_profiles.py",
-        "integration/test_setup_upstream.py"
+        "integration/test_setup_upstream.py",
+        "tests/test_ashare_input.py",
+        "tests/test_integration_refs.py",
+        "integration/test_upstream.py"
       ]
     },
     {
