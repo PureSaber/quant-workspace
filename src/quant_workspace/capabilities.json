@@ -1,6 +1,6 @@
 {
   "schema_version": "quant.capabilities/v1",
-  "as_of": "2026-10-07",
+  "as_of": "2026-10-08",
   "scope": "23个维护仓库的功能声明；证据指向实现，存在源码不等于运行或市场认证",
   "release_scopes": {
     "m8_runtime": {
@@ -18,7 +18,7 @@
       "entrypoints": ["qdk-validate", "qdk-catalog", "python -m quant_data_kit"],
       "contracts": ["行情快照与SHA-256清单", "PIT事件和证券规格", "puresaber.dividend-lifecycle/1", "puresaber.pit-fx/1", "puresaber.evidence-timing/2", "puresaber.dividend-lifecycle/2", "puresaber.dividend-lifecycle-v1-to-v2/1"],
       "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
-      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红v1契约已接入QExec和HK显式离线场景；时间v2消费者仍待实现，可信来源材料、完整历史与账户实际到账未认证", "既有共享UTC转换及消费者JSON解析的纳秒精度需独立修复，不由新财务v2模块替代"],
+      "gaps": ["独立归档恢复", "Crypto八流连续30日", "国内授权L2", "分红v1契约已接入QExec和HK显式离线场景；时间v2消费者仍待实现，可信来源材料、完整历史与账户实际到账未认证。共享UTC及既有消费者纳秒精度已另行修复，不等同于时间v2完整消费"],
       "evidence": ["README.md", "pyproject.toml", "src/quant_data_kit/financial/dividends.py", "src/quant_data_kit/financial/fx.py", "tests/test_dividend_lifecycle.py", "src/quant_data_kit/financial/publication_time_v2.py", "src/quant_data_kit/financial/dividends_v2.py", "src/quant_data_kit/financial/dividend_migration_v2.py", "tests/test_publication_time_v2.py", "tests/test_dividend_lifecycle_v2_migration.py"]
     },
     {
@@ -35,24 +35,24 @@
       "capabilities": ["确定性撮合", "精确现金与持仓账本", "市场专属费用交收", "风险门禁", "分红权益、发行人换汇和实际付款三阶段及幂等/回滚", "整户精确聚合、证据化政策和全账户PIT估值", "封存快照导出、顺序业务事实回放与失败目录拒绝"],
       "entrypoints": ["Python API"], "contracts": ["OrderIntent", "FixedPoint账本", "standard/v2执行事实", "puresaber.execution.dividend-record/1", "puresaber.execution.replay-artifact-manifest/1.1.0"],
       "data_status": "离线模拟执行；规则有效性取决于输入证据",
-      "gaps": ["真实市场规则与独立双腿验收", "HK生命周期离线场景已接入；真实权益/政策/到账及完整市场准入未认证", "发布时间v2消费者尚未实现；既有共享时间转换和JSON解析纳秒精度待独立修复", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml", "src/quant_execution/dividends.py", "src/quant_execution/artifacts.py", "tests/test_dividend_lifecycle.py", "tests/test_dividend_artifacts.py"]
+      "gaps": ["真实市场规则与独立双腿验收", "HK生命周期离线场景已接入；真实权益/政策/到账及完整市场准入未认证", "发布时间v2消费者尚未实现；既有共享时间转换和JSON解析纳秒精度已独立修复", "无实盘券商接入承诺"], "evidence": ["README.md", "pyproject.toml", "src/quant_execution/dividends.py", "src/quant_execution/artifacts.py", "tests/test_dividend_lifecycle.py", "tests/test_dividend_artifacts.py"]
     },
     {
       "id": "a-share-multifactor", "layer": "application",
       "assets": ["A股", "场内ETF"],
       "capabilities": ["多因子选股", "ETF趋势研究", "PIT预检", "缓存、因子与全收益基准的独立只读预检", "风险约束与账本回放", "保留风险模型的等权对照及显式基准定义的六维配对反事实", "仅改变现金缓冲比例或趋势资格筛选的原生配对研究"],
-      "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "python -m a_share_multifactor.preflight", "EquityResearchExecutor"],
-      "contracts": ["quant.research-recipe/v1", "asm.quantile-preflight/v1", "standard/v2"],
+      "entrypoints": ["asm-fetch", "asm-backtest", "asm-decision", "asm-disclosures", "python -m a_share_multifactor.preflight", "EquityResearchExecutor"],
+      "contracts": ["quant.research-recipe/v1", "asm.quantile-preflight/v1", "a-share.disclosures/v1", "standard/v2"],
       "data_status": "四ETF真实日线历史研究；六维27账本及现金缓冲/趋势筛选两组30账本完成原生核验，原收益及基准路径复现；全部重用189个市场日期，不增加独立样本；r4前向窗口尚未开始",
       "gaps": ["时钟修复已复验；独立r5登记待既有自动化要求的授权", "完整历史交易状态", "独立前向结果"],
-      "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py", "src/a_share_multifactor/preflight.py", "src/a_share_multifactor/paired_research.py"]
+      "evidence": ["README.md", "src/a_share_multifactor/research_workbench.py", "src/a_share_multifactor/preflight.py", "src/a_share_multifactor/paired_research.py", "src/a_share_multifactor/disclosures.py", "docs/DISCLOSURE_IMPORT.md"]
     },
     {
       "id": "quant-hk-equity", "layer": "application", "assets": ["港股", "港股ETF"],
       "capabilities": ["真实日线研究", "整手与费用", "现金交收", "公司行动及v2适配", "带收益口径的统一绩效导出", "独立固定栈的分红场景：训练价格选择冻结、阶段事实PIT裁剪、UTC账户时间线与T+2交收", "分红权益、发行人换汇、实际付款及多币种全账户估值；实际到账与未到账声明互斥", "规范生命周期摘要与全场景实例ID校验、真实依赖模块/文件/原始Git内容绑定、原生磁盘重放与失败拒绝"],
       "entrypoints": ["quant-hk fetch/preflight/run", "quant-hk dividend-scenario"], "contracts": ["quant-hk-study/v1", "quant-hk-study/v2", "standard/v1", "standard/v2探索性导出", "quant-hk-dividend-scenario/v1", "quant-hk-dividend-scenario-result/v1"],
       "data_status": "既有真实研究仍为181日探索性价格收益。新分红场景在独立锁定栈完成离线软件验证及磁盘重放；默认v1/v2每版73份业务文件与基线逐字节相同。场景不输出Lab排名产品，investable/rankable/market_admission_certified均为false；未新增Studio模板、市场回测或独立前向。29条HKEX分钟索引仍只按captured_only处理",
-      "gaps": ["完整真实公司行动与历史股票池", "历史整手、费用与交易状态", "真实交收日历", "可信历史发布时间、真实账户权益、持有人税费政策及实际净到账", "发布时间v2消费者尚未实现；原场景JSON时间解析纳秒精度待独立修复"],
+      "gaps": ["完整真实公司行动与历史股票池", "历史整手、费用与交易状态", "真实交收日历", "可信历史发布时间、真实账户权益、持有人税费政策及实际净到账", "发布时间v2消费者尚未实现；原场景JSON时间解析纳秒精度已独立修复"],
       "evidence": ["README.md", "src/quant_hk_equity/research.py", "src/quant_hk_equity/actions.py", "src/quant_hk_equity/dividend_scenario.py", "scenario_tests/test_dividend_scenario.py", "stack.dividend-scenario.lock"]
     },
     {
@@ -67,9 +67,9 @@
       "id": "quant-fund", "layer": "application", "assets": ["公募基金", "私募基金", "FOF"],
       "capabilities": ["净值分析", "申赎与确认账本", "分用途日历", "FOF监控", "Streamlit界面", "完整估值与月末样本分口径导出", "数据与静态回测配置的原生只读预检及Studio接入", "按生效区间与获知时间选择历史分类和条款；订单冻结申请日版本、申购批次锁定期及费用", "从完整归档输入复核版本、日历、净值与逐笔费用；拒绝重签后的重复订单及数值归一冲突，兼容旧静态报告", "request_id幂等提交、冲突拒绝、日推进与提交失败回滚、冻结金额及份额守恒", "完整归档订单与条款的逐日账本重放核验", "公募现金分红净值再投资；累计净值独立现金核对与不支持拆分拒绝", "原生报告viewport、中文表头、局部键盘横滚与复现信息换行"],
       "entrypoints": ["python -m quant_fund.cli", "streamlit run app.py"], "contracts": ["只读平台快照", "quant-fund.research-run@2", "quant-fund.research-run@1旧静态兼容", "standard/v2探索性导出", "quant-fund.preflight/v1"],
-      "data_status": "93项测试、Linux/WindowsCI及Studio原生集成通过；四公募13386条公开净值按份额再投资独立复核，入库导出、幂等重试及旧快照冲突回滚通过。新的宽窄屏报告及合成申赎软件闭环已验收，13份经济输出逐字节一致。当前采集日不是历史披露可得日，真实历史条款、权益与实际到账仍未认证",
+      "data_status": "133项测试及Linux/WindowsCI通过；已新增冻结费率/舍入策略和一单多批确认、分次到账凭证的只读核对。四公募13386条公开净值及另两只5529条小样本独立复核；本轮临时下载数据已按回执删除。当前采集日不是历史披露可得日，真实历史条款、权益与实际到账仍未认证",
       "gaps": ["真实条款与分红及实际获知时间", "真实申赎确认银行日历和逐笔人工对账", "私募授权业务材料", "名称历史未实现；ETF、外币及PE/VC范围未扩展"],
-      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py", "src/quant_fund/terms.py", "src/quant_fund/engine.py", "tests/test_historical_terms.py", "docs/DATA_CONTRACT.md"]
+      "evidence": ["README.md", "src/quant_fund/integration.py", "src/quant_fund/report.py", "src/quant_fund/preflight.py", "src/quant_fund/terms.py", "src/quant_fund/engine.py", "src/quant_fund/dealing.py", "src/quant_fund/batches.py", "tests/test_historical_terms.py", "docs/DATA_CONTRACT.md", "docs/EXECUTION_POLICY.md"]
     },
     {
       "id": "quant-futures-spread", "layer": "application", "assets": ["期货价差"],
@@ -242,10 +242,10 @@
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
-      "capabilities": ["路径配置", "能力清单", "源码盘点", "不可变发布清单", "认证门禁", "研究环境profile"],
-      "entrypoints": ["quant-workspace show/path/capabilities/stack-manifest/verify-stack"], "contracts": ["quant.capabilities/v1", "quant.source-inventory/v1", "StackManifest 1.0.0"],
+      "capabilities": ["路径配置", "能力清单", "源码盘点", "不可变发布清单", "认证门禁", "研究环境profile", "独立解释器与固定依赖只读检查、显式预览及新环境重建"],
+      "entrypoints": ["quant-workspace show/path/capabilities/stack-manifest/verify-stack", "quant-workspace runtime-profile/doctor/bootstrap-env"], "contracts": ["quant.capabilities/v1", "quant.source-inventory/v1", "StackManifest 1.0.0", "quant.runtime-profile/v1", "quant.runtime-readiness/v1"],
       "data_status": "区分23仓维护范围和14仓历史发行范围",
-      "gaps": ["源码盘点不替代运行和跨仓验收"], "evidence": ["README.md", "configs/v2.release.workspace.yaml"]
+      "gaps": ["源码盘点和依赖环境检查不替代应用运行及跨仓业务验收"], "evidence": ["README.md", "configs/v2.release.workspace.yaml", "src/quant_workspace/runtime_readiness.py", "docs/RUNTIME_READINESS.md"]
     },
     {
       "id": "quant-infra-workspace", "layer": "governance", "assets": ["平台仓库"],

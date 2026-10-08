@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -10,6 +11,12 @@ import yaml
 from quant_workspace.capabilities import load_capabilities, source_inventory
 from quant_workspace.loader import load_workspace
 from quant_workspace.m7_certification import load_m7_certification, validate_m7_certification
+from quant_workspace.runtime_readiness import (
+    bootstrap,
+    check_runtime,
+    create_profile,
+    write_profile,
+)
 from quant_workspace.stack_manifest import (
     StackManifestReleaseError,
     discover_stack,
@@ -60,6 +67,28 @@ def cmd_path(args: argparse.Namespace) -> int:
     ws = load_workspace(Path(args.config), root_override=args.root or None)
     print(ws.path(args.project, args.key))
     return 0
+
+
+def cmd_runtime(args: argparse.Namespace) -> int:
+    try:
+        workspace = load_workspace(Path(args.config), root_override=args.root or None)
+        if args.command == "runtime-profile":
+            profile = create_profile(
+                workspace, args.projects, python=args.python_spec, environment=args.environment
+            )
+            write_profile(Path(args.out), profile)
+            payload = {"path": args.out, "profile": profile}
+        elif args.command == "doctor":
+            payload = check_runtime(Path(args.profile), workspace.root)
+        else:
+            payload = bootstrap(
+                Path(args.profile), workspace.root, args.project, execute=args.execute
+            )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 2 if payload.get("status") == "blocked" else 0
+    except (KeyError, OSError, TypeError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
+        return 2
 
 
 def cmd_lab_config(args: argparse.Namespace) -> int:
@@ -142,6 +171,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Check local source presence, Git and evidence only",
     )
     capabilities.set_defaults(func=cmd_capabilities)
+
+    runtime = sub.add_parser("runtime-profile", help="Pin selected clean checkouts and lock bytes")
+    runtime.add_argument("--projects", nargs="+", required=True)
+    runtime.add_argument("--python-spec", default=">=3.12,<3.13")
+    runtime.add_argument("--environment", default=".venv")
+    runtime.add_argument("--out", required=True)
+    runtime.set_defaults(func=cmd_runtime)
+    doctor = sub.add_parser(
+        "doctor", help="Read-only source, interpreter and installed-lock checks"
+    )
+    doctor.add_argument("--profile", required=True)
+    doctor.set_defaults(func=cmd_runtime)
+    install = sub.add_parser("bootstrap-env", help="Preview or create a new pinned environment")
+    install.add_argument("--profile", required=True)
+    install.add_argument("--project", required=True)
+    install.add_argument(
+        "--execute", action="store_true", help="Explicitly create and install a new environment"
+    )
+    install.set_defaults(func=cmd_runtime)
 
     path = sub.add_parser("path", help="Print one resolved path")
     path.add_argument("project")

@@ -20,6 +20,8 @@ quant-workspace --config configs/platform.workspace.yaml show
 
 ## Install
 
+日常独立环境可使用 `runtime-profile` 固定提交与依赖锁，`doctor` 只读核对实际解释器和已安装依赖，`bootstrap-env` 预览或显式创建全新环境。完整步骤及认证边界见[环境检查与重建](docs/RUNTIME_READINESS.md)。这些命令不修改历史发行或已有环境。
+
 ```bash
 pip install -e ".[dev]"
 ```
