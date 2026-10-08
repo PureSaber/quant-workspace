@@ -16,7 +16,7 @@ from urllib.request import url2pathname
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
-from packaging.utils import canonicalize_name
+from packaging.utils import InvalidWheelFilename, canonicalize_name, parse_wheel_filename
 from packaging.version import InvalidVersion, Version
 
 from quant_workspace.capabilities import _git
@@ -55,13 +55,55 @@ def python_path(environment: Path) -> Path:
     return environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def lock_requirements(text: str) -> list[Requirement]:
+def _validate_find_links(repo: Path, value: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9._/-]+", value):
+        raise ValueError("Find-links must be a canonical relative directory")
+    relative = _relative(value)
+    if relative.as_posix() != value:
+        raise ValueError("Find-links must be a canonical relative directory")
+    repo = repo.resolve()
+    directory = repo / relative
+    resolved = directory.resolve()
+    if not resolved.is_relative_to(repo) or not directory.is_dir():
+        raise ValueError("Find-links directory must stay within the repository")
+
+    entries = list(directory.iterdir())
+    if not entries:
+        raise ValueError("Find-links directory must contain tracked wheels")
+    actual = set()
+    for entry in entries:
+        if not entry.is_file() or not entry.resolve().is_relative_to(repo):
+            raise ValueError("Find-links may contain only repository wheel files")
+        try:
+            parse_wheel_filename(entry.name)
+        except InvalidWheelFilename as exc:
+            raise ValueError("Find-links may contain only fixed wheel files") from exc
+        actual.add(entry.relative_to(repo).as_posix())
+
+    tracked = {}
+    for line in _git(repo, "ls-files", "--stage", "--", relative.as_posix()).splitlines():
+        metadata, path = line.split("\t", 1)
+        mode, _object_id, stage = metadata.split()
+        tracked[path] = (mode, stage)
+    if actual != set(tracked) or any(
+        mode not in {"100644", "100755"} or stage != "0" for mode, stage in tracked.values()
+    ):
+        raise ValueError("Find-links wheels must be regular files tracked by Git")
+
+
+def lock_requirements(text: str, *, repo: Path | None = None) -> list[Requirement]:
     """Support pip-compile exact versions and immutable Git commits, never resolve."""
     logical = text.replace("\r\n", "\n").replace("\\\n", " ")
     result = []
     for raw in logical.splitlines():
         line = re.split(r"\s+#", raw.strip(), maxsplit=1)[0]
         if not line or line.startswith("#"):
+            continue
+        if line.startswith("-"):
+            match = re.fullmatch(r"--find-links(?:=|[ \t]+)(\S+)", line)
+            if match is None or repo is None:
+                raise ValueError(f"Unsupported requirements option: {line}")
+            _validate_find_links(repo, match.group(1))
             continue
         line = re.split(r"\s+--hash=", line, maxsplit=1)[0].strip()
         try:
@@ -134,7 +176,7 @@ def _source(item: dict, root: Path) -> tuple[Path, list[str]]:
         raw = _inside(repo, item["lock"]).read_bytes()
         if digest(raw) != item["lock_sha256"]:
             issues.append("lock_mismatch")
-        lock_requirements(raw.decode("utf-8"))
+        lock_requirements(raw.decode("utf-8"), repo=repo)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         issues.append(f"source_unverifiable:{exc}")
     return repo, issues
@@ -223,23 +265,19 @@ def _read_pyvenv(environment: Path, executable: Path) -> dict:
     except InvalidVersion as exc:  # Defensive if packaging accepts less than the regex.
         raise ValueError("Invalid Python version metadata") from exc
 
-    base_executable = None
+    creation_executable = None
     if configured := fields.get("executable"):
         candidate = Path(configured)
-        if (
-            not candidate.is_absolute()
-            or not candidate.is_file()
-            or candidate.parent.resolve() != home.resolve()
-        ):
-            raise ValueError("pyvenv.cfg executable does not match home")
-        base_executable = str(candidate.resolve())
+        if not candidate.is_absolute() or not candidate.is_file():
+            raise ValueError("pyvenv.cfg creation executable must be an existing absolute file")
+        creation_executable = str(candidate.resolve())
 
     return {
         "fields": fields,
         "version": version_text,
         "major_minor": f"{match.group(1)}.{match.group(2)}",
         "home": str(home.resolve()),
-        "base_executable": base_executable,
+        "creation_executable": creation_executable,
         "implementation": fields.get("implementation"),
     }
 
@@ -318,7 +356,7 @@ def _read_environment(environment: Path, executable: Path) -> dict:
         "distributions": distributions,
         "include_system_site_packages": False,
         "interpreter": str(executable.resolve()),
-        "base_executable": identity["base_executable"],
+        "creation_executable": identity["creation_executable"],
         "implementation": identity["implementation"],
     }
 
@@ -351,7 +389,7 @@ def _version_matches(version: str, specifier: SpecifierSet) -> bool | None:
     return Version(f"{parsed.major}.{parsed.minor}.0") in specifier
 
 
-def _marker_applies(marker, probe: dict) -> bool | None:
+def _marker_applies(marker, probe: dict, *, extra: str = "") -> bool | None:
     text = str(marker)
     full_version = probe["version"].count(".") >= 2
     implementation = (probe.get("implementation") or "").casefold()
@@ -363,7 +401,9 @@ def _marker_applies(marker, probe: dict) -> bool | None:
         field in text for field in ("implementation_name", "platform_python_implementation")
     ):
         return None
-    return marker.evaluate(probe["marker_environment"])
+    environment = dict(probe["marker_environment"])
+    environment["extra"] = extra
+    return marker.evaluate(environment)
 
 
 def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
@@ -389,7 +429,9 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
             issues.append(f"duplicate_distribution:{name}")
         distributions[name] = dist
     active_lock = []
-    for requirement in lock_requirements((repo / item["lock"]).read_text(encoding="utf-8")):
+    for requirement in lock_requirements(
+        (repo / item["lock"]).read_text(encoding="utf-8"), repo=repo
+    ):
         if requirement.marker:
             applies = _marker_applies(requirement.marker, probe)
             if applies is None:
@@ -440,6 +482,32 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
         distribution = distributions[name]
         if name != "pip" or distribution.get("direct_url") is not None:
             issues.append(f"unlocked_distribution:{name}")
+
+    requested_extras: dict[str, set[str]] = {}
+    for requirement in active_lock:
+        name = canonicalize_name(requirement.name)
+        requested_extras.setdefault(name, set()).update(
+            canonicalize_name(extra) for extra in requirement.extras
+        )
+    changed = True
+    while changed:
+        changed = False
+        for name, dist in distributions.items():
+            contexts = {"", *requested_extras.get(name, set())}
+            for raw in dist["requires"]:
+                requirement = Requirement(raw)
+                if requirement.marker and not any(
+                    _marker_applies(requirement.marker, probe, extra=extra) is True
+                    for extra in contexts
+                ):
+                    continue
+                dependency = canonicalize_name(requirement.name)
+                before = len(requested_extras.setdefault(dependency, set()))
+                requested_extras[dependency].update(
+                    canonicalize_name(extra) for extra in requirement.extras
+                )
+                changed = changed or len(requested_extras[dependency]) != before
+
     for name, dist in distributions.items():
         if dist.get("requires_python"):
             matches = _version_matches(probe["version"], SpecifierSet(dist["requires_python"]))
@@ -451,11 +519,14 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
             requirement = Requirement(raw)
             dependency = canonicalize_name(requirement.name)
             if requirement.marker:
-                applies = _marker_applies(requirement.marker, probe)
-                if applies is None:
+                results = {
+                    _marker_applies(requirement.marker, probe, extra=extra)
+                    for extra in {"", *requested_extras.get(name, set())}
+                }
+                if True not in results and None in results:
                     issues.append(f"metadata_insufficient:dependency_marker:{name}:{dependency}")
                     continue
-                if not applies:
+                if True not in results:
                     continue
             target = distributions.get(dependency)
             if target is None:
@@ -467,7 +538,9 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
 
 def _bootstrap_tools(item: dict, repo: Path, probe: dict) -> list[dict]:
     pip_locked = False
-    for requirement in lock_requirements((repo / item["lock"]).read_text(encoding="utf-8")):
+    for requirement in lock_requirements(
+        (repo / item["lock"]).read_text(encoding="utf-8"), repo=repo
+    ):
         if canonicalize_name(requirement.name) != "pip":
             continue
         applies = _marker_applies(requirement.marker, probe) if requirement.marker else True
@@ -511,7 +584,7 @@ def check_runtime(path: Path, root: Path) -> dict:
                     environment_metadata = {
                         "interpreter": probed["interpreter"],
                         "home": probed["base_prefix"],
-                        "base_executable": probed["base_executable"],
+                        "creation_executable": probed["creation_executable"],
                         "implementation": probed["implementation"],
                         "include_system_site_packages": probed["include_system_site_packages"],
                     }

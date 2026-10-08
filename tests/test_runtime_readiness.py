@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from packaging.markers import Marker
@@ -48,7 +50,7 @@ def probe(repo, version="26.3"):
         "marker_environment": {"python_version": "3.12", "extra": ""},
         "include_system_site_packages": False,
         "interpreter": str(executable),
-        "base_executable": None,
+        "creation_executable": None,
         "implementation": "CPython",
         "distributions": [
             {"name": "packaging", "version": version, "requires": [], "direct_url": None},
@@ -69,6 +71,14 @@ def prepare_probe(monkeypatch, repo, value=None):
     monkeypatch.setattr(runtime, "_read_environment", lambda *args: value or probe(repo))
 
 
+def repin_lock(repo, path, workspace, text):
+    (repo / "requirements.lock").write_text(text)
+    git(repo, "add", "requirements.lock")
+    git(repo, "commit", "-m", "update fixture lock")
+    profile = runtime.create_profile(workspace, ["sample"], python=">=3.10,<4")
+    path.write_text(json.dumps(profile))
+
+
 def write_distribution(site, name, version, *, requires=(), requires_python=None, direct_url=None):
     metadata = site / f"{name.replace('-', '_')}-{version}.dist-info"
     metadata.mkdir()
@@ -85,17 +95,19 @@ def write_metadata_environment(repo, layout="windows", *, uv=False):
     environment = repo / f".{layout}-venv"
     home = repo / f"{layout}-base"
     home.mkdir()
+    creator = repo / f"{layout}-creator"
+    creator.mkdir()
     if layout == "windows":
         executable = environment / "Scripts" / "python.exe"
-        base_executable = home / "python.exe"
+        creation_executable = creator / "python.exe"
         site = environment / "Lib" / "site-packages"
     else:
         executable = environment / "bin" / "python"
-        base_executable = home / "python3.12"
+        creation_executable = creator / "python3.12"
         site = environment / "lib" / "python3.12" / "site-packages"
     executable.parent.mkdir(parents=True)
     executable.touch()
-    base_executable.touch()
+    creation_executable.touch()
     site.mkdir(parents=True)
     if uv:
         config = (
@@ -105,7 +117,7 @@ def write_metadata_environment(repo, layout="windows", *, uv=False):
     else:
         config = (
             f"home = {home}\ninclude-system-site-packages = false\nversion = 3.12.14\n"
-            f"executable = {base_executable}\n"
+            f"executable = {creation_executable}\n"
         )
     (environment / "pyvenv.cfg").write_text(config, encoding="utf-8")
     write_distribution(site, "packaging", "26.3")
@@ -301,9 +313,56 @@ def test_lock_parser_handles_markers_hashes_and_rejects_unpinned():
         + "\nbar==2 ; python_version < '3.11'\n"
     )
     assert [r.name for r in rows] == ["foo", "bar"]
-    for text in ["foo>=1", "-e .", "-r other.txt", "foo @ https://example.invalid/pkg.whl"]:
-        with pytest.raises(ValueError, match="locked"):
+    for text in [
+        "foo>=1",
+        "-e .",
+        "-r other.txt",
+        "--index-url https://example.invalid/simple",
+        "foo @ https://example.invalid/pkg.whl",
+    ]:
+        with pytest.raises(ValueError):
             runtime.lock_requirements(text)
+
+
+def test_lock_parser_accepts_only_tracked_repository_wheels(checkout):
+    repo, _, _ = checkout
+    wheels = repo / "vendor" / "wheels"
+    wheels.mkdir(parents=True)
+    (wheels / "akshare-1.18.88.post1-py3-none-any.whl").write_bytes(b"fixed fixture")
+    git(repo, "add", "vendor/wheels")
+    git(repo, "commit", "-m", "vendor fixed wheel")
+    rows = runtime.lock_requirements(
+        "--find-links vendor/wheels\nakshare==1.18.88.post1\n", repo=repo
+    )
+    assert [str(row) for row in rows] == ["akshare==1.18.88.post1"]
+
+    (wheels / "untracked-1.0-py3-none-any.whl").write_bytes(b"ignored or untracked")
+    with pytest.raises(ValueError, match="tracked by Git"):
+        runtime.lock_requirements("--find-links vendor/wheels\nakshare==1.18.88.post1\n", repo=repo)
+
+
+@pytest.mark.parametrize(
+    "value", ["../wheels", "/vendor/wheels", "https://example.invalid/wheels", "vendor/../wheels"]
+)
+def test_find_links_rejects_paths_outside_canonical_repository_form(checkout, value):
+    repo, _, _ = checkout
+    with pytest.raises(ValueError):
+        runtime.lock_requirements(f"--find-links {value}\nfoo==1\n", repo=repo)
+
+
+def test_find_links_rejects_symlink_escape(checkout, tmp_path):
+    repo, _, _ = checkout
+    outside = tmp_path / "outside-wheels"
+    outside.mkdir()
+    (outside / "foo-1.0-py3-none-any.whl").write_bytes(b"outside")
+    link = repo / "vendor" / "wheels"
+    link.parent.mkdir()
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are unavailable on this host")
+    with pytest.raises(ValueError, match="stay within the repository"):
+        runtime.lock_requirements("--find-links vendor/wheels\nfoo==1\n", repo=repo)
 
 
 @pytest.mark.parametrize("layout", ["windows", "posix"])
@@ -319,7 +378,7 @@ def test_metadata_reader_supports_windows_and_posix_without_executing_pth(tmp_pa
     result = runtime._read_environment(environment, executable)
     assert result["version"] == "3.12.14"
     assert result["interpreter"] == str(executable.resolve())
-    assert result["base_executable"] is not None
+    assert result["creation_executable"] is not None
     assert {d["name"] for d in result["distributions"]} == {"packaging", "sample"}
     assert (
         next(d for d in result["distributions"] if d["name"] == "sample")["requires_python"]
@@ -334,7 +393,7 @@ def test_metadata_reader_supports_uv_version_info_and_rejects_system_site_packag
     environment, executable, _ = write_metadata_environment(repo, "posix", uv=True)
     result = runtime._read_environment(environment, executable)
     assert result["version"] == "3.12"
-    assert result["base_executable"] is None
+    assert result["creation_executable"] is None
     config = environment / "pyvenv.cfg"
     config.write_text(
         config.read_text().replace(
@@ -345,7 +404,7 @@ def test_metadata_reader_supports_uv_version_info_and_rejects_system_site_packag
         runtime._read_environment(environment, executable)
 
 
-def test_metadata_reader_requires_interpreter_and_matching_base_path(tmp_path):
+def test_metadata_reader_requires_interpreter_and_existing_creator(tmp_path):
     repo = tmp_path / "sample"
     repo.mkdir()
     environment, executable, _ = write_metadata_environment(repo)
@@ -355,8 +414,20 @@ def test_metadata_reader_requires_interpreter_and_matching_base_path(tmp_path):
     executable.touch()
     config = environment / "pyvenv.cfg"
     config.write_text(config.read_text().replace("executable = ", "executable = C:/wrong/"))
-    with pytest.raises(ValueError, match="executable does not match home"):
+    with pytest.raises(ValueError, match="creation executable must be an existing absolute file"):
         runtime._read_environment(environment, executable)
+
+
+def test_pyvenv_records_existing_venv_as_creation_executable(tmp_path):
+    environment = tmp_path / "nested-venv"
+    subprocess.run(
+        [sys.executable, "-I", "-m", "venv", "--without-pip", str(environment)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    identity = runtime._read_pyvenv(environment, runtime.python_path(environment))
+    assert identity["creation_executable"] == str(Path(sys.executable).resolve())
 
 
 def test_git_lock_commit_and_provider_must_match(monkeypatch, checkout):
@@ -424,6 +495,75 @@ def test_marker_packages_not_required_but_incompatible_active_dependency_blocks(
     prepare_probe(monkeypatch, repo, value)
     result = runtime.check_runtime(path, workspace.root)
     assert result["projects"][0]["issues"] == ["incompatible_dependency:sample:packaging"]
+
+
+def test_locked_extra_activates_missing_dependency(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    repin_lock(repo, path, workspace, "packaging==26.3\nfoo[bar]==1\nbad==1\n")
+    value = probe(repo)
+    value["distributions"].extend(
+        [
+            {
+                "name": "foo",
+                "version": "1",
+                "requires": [
+                    'missing; extra == "bar"',
+                    'bad>=2; extra == "bar"',
+                ],
+                "direct_url": None,
+            },
+            {"name": "bad", "version": "1", "requires": [], "direct_url": None},
+        ]
+    )
+    prepare_probe(monkeypatch, repo, value)
+    issues = runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
+    assert "missing_dependency:foo:missing" in issues
+    assert "incompatible_dependency:foo:bad" in issues
+
+
+def test_nested_extras_reach_fixed_point_through_cycle(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    repin_lock(repo, path, workspace, "packaging==26.3\nfoo[root]==1\nmiddle==1\n")
+    value = probe(repo)
+    value["distributions"].extend(
+        [
+            {
+                "name": "foo",
+                "version": "1",
+                "requires": [
+                    'middle[nested]; extra == "root"',
+                    'missing; extra == "loop"',
+                ],
+                "direct_url": None,
+            },
+            {
+                "name": "middle",
+                "version": "1",
+                "requires": ['foo[loop]; extra == "nested"'],
+                "direct_url": None,
+            },
+        ]
+    )
+    prepare_probe(monkeypatch, repo, value)
+    issues = runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
+    assert issues.count("missing_dependency:foo:missing") == 1
+
+
+def test_unrequested_extra_dependency_is_inactive(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    repin_lock(repo, path, workspace, "packaging==26.3\nfoo==1\n")
+    value = probe(repo)
+    value["distributions"].append(
+        {
+            "name": "foo",
+            "version": "1",
+            "requires": ['missing; extra == "bar"'],
+            "direct_url": None,
+        }
+    )
+    prepare_probe(monkeypatch, repo, value)
+    issues = runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
+    assert not any(issue.startswith("missing_dependency:foo:") for issue in issues)
 
 
 def test_bootstrap_executes_fixed_argv_and_preserves_failure_logs(monkeypatch, checkout):
