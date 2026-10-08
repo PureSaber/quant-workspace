@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata as importlib_metadata
 import json
 import os
 import re
@@ -12,9 +13,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 
 from quant_workspace.capabilities import _git
 
@@ -25,28 +28,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
 
 SCHEMA = "quant.runtime-profile/v1"
 FIELDS = {"id", "repo", "revision", "lock", "lock_sha256", "distribution", "python", "environment"}
-PROBE = r"""
-import importlib.metadata as m, json, os, platform, sys
-v = sys.implementation.version
-implementation_version = f"{v.major}.{v.minor}.{v.micro}"
-if v.releaselevel != "final":
-    implementation_version += v.releaselevel[0] + str(v.serial)
-environment = {
-    "implementation_name": sys.implementation.name, "implementation_version": implementation_version,
-    "os_name": os.name, "platform_machine": platform.machine(), "platform_release": platform.release(),
-    "platform_system": platform.system(), "platform_version": platform.version(),
-    "python_full_version": platform.python_version(), "python_version": ".".join(platform.python_version_tuple()[:2]),
-    "platform_python_implementation": platform.python_implementation(), "sys_platform": sys.platform, "extra": ""
-}
-distributions = []
-for d in m.distributions():
-    direct = d.read_text("direct_url.json")
-    distributions.append({"name": d.metadata["Name"], "version": d.version,
-                          "requires": d.requires or [], "direct_url": json.loads(direct) if direct else None})
-print(json.dumps({"version": platform.python_version(), "prefix": sys.prefix,
-                  "base_prefix": sys.base_prefix, "marker_environment": environment,
-                  "distributions": distributions}))
-"""
+MAX_METADATA_BYTES = 4_000_000
 
 
 def digest(raw: bytes) -> str:
@@ -202,29 +184,202 @@ def _load(path: Path) -> tuple[dict, str]:
     return profile, digest(raw)
 
 
-def _probe(executable: Path, repo: Path) -> dict:
-    result = subprocess.run(
-        [str(executable), "-I", "-c", PROBE],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=30,
-        check=True,
+def _read_pyvenv(environment: Path, executable: Path) -> dict:
+    """Read venv identity without starting its interpreter or processing .pth files."""
+    config = environment / "pyvenv.cfg"
+    raw = config.read_bytes()
+    if len(raw) > 65_536:
+        raise ValueError("pyvenv.cfg is too large")
+    fields = {}
+    for number, raw_line in enumerate(raw.decode("utf-8-sig").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if "=" not in line:
+            raise ValueError(f"Malformed pyvenv.cfg line {number}")
+        key, value = (part.strip() for part in line.split("=", 1))
+        normalized = key.casefold()
+        if not key or not value or normalized in fields:
+            raise ValueError(f"Invalid pyvenv.cfg field on line {number}")
+        fields[normalized] = value
+
+    if fields.get("include-system-site-packages", "").casefold() != "false":
+        raise ValueError("System site packages must be disabled")
+    home_text = fields.get("home")
+    if not home_text:
+        raise ValueError("pyvenv.cfg home is required")
+    home = Path(home_text)
+    if not home.is_absolute() or not home.is_dir():
+        raise ValueError("pyvenv.cfg home must be an existing absolute directory")
+    if not executable.is_file():
+        raise ValueError("Environment interpreter is missing")
+
+    version_text = fields.get("version") or fields.get("version_info")
+    match = re.fullmatch(r"([0-9]+)\.([0-9]+)(?:\.([0-9]+))?", version_text or "")
+    if not match:
+        raise ValueError("pyvenv.cfg requires numeric Python version metadata")
+    try:
+        Version(version_text)
+    except InvalidVersion as exc:  # Defensive if packaging accepts less than the regex.
+        raise ValueError("Invalid Python version metadata") from exc
+
+    base_executable = None
+    if configured := fields.get("executable"):
+        candidate = Path(configured)
+        if (
+            not candidate.is_absolute()
+            or not candidate.is_file()
+            or candidate.parent.resolve() != home.resolve()
+        ):
+            raise ValueError("pyvenv.cfg executable does not match home")
+        base_executable = str(candidate.resolve())
+
+    return {
+        "fields": fields,
+        "version": version_text,
+        "major_minor": f"{match.group(1)}.{match.group(2)}",
+        "home": str(home.resolve()),
+        "base_executable": base_executable,
+        "implementation": fields.get("implementation"),
+    }
+
+
+def _site_packages(environment: Path, major_minor: str, executable: Path) -> list[Path]:
+    if executable.parent.name.casefold() == "scripts":
+        candidates = [environment / "Lib" / "site-packages"]
+    else:
+        candidates = [
+            environment / "lib" / f"python{major_minor}" / "site-packages",
+            environment / "lib64" / f"python{major_minor}" / "site-packages",
+        ]
+    paths = []
+    for candidate in candidates:
+        if candidate.is_dir() and candidate.resolve() not in {path.resolve() for path in paths}:
+            paths.append(candidate)
+    if not paths:
+        raise ValueError("Environment site-packages directory is missing")
+    return paths
+
+
+def _read_environment(environment: Path, executable: Path) -> dict:
+    identity = _read_pyvenv(environment, executable)
+    marker = default_environment()
+    marker.update(
+        {
+            "python_full_version": identity["version"],
+            "python_version": identity["major_minor"],
+            "extra": "",
+        }
     )
-    if len(result.stdout) > 4_000_000:
-        raise ValueError("Environment metadata is too large")
-    return json.loads(result.stdout)
+    if identity["implementation"]:
+        implementation = identity["implementation"].casefold()
+        marker["implementation_name"] = implementation
+        marker["platform_python_implementation"] = identity["implementation"]
+        if implementation == "cpython":
+            marker["implementation_version"] = identity["version"]
+
+    distributions = []
+    metadata_size = 0
+    for distribution in importlib_metadata.distributions(
+        path=[
+            str(path) for path in _site_packages(environment, identity["major_minor"], executable)
+        ]
+    ):
+        name = distribution.metadata.get("Name")
+        version = distribution.version
+        requires_python = distribution.metadata.get("Requires-Python")
+        if not name or not version:
+            raise ValueError("Installed distribution lacks name or version metadata")
+        direct_text = distribution.read_text("direct_url.json")
+        requires = distribution.requires or []
+        metadata_size += (
+            len(name)
+            + len(version)
+            + len(requires_python or "")
+            + sum(map(len, requires))
+            + len(direct_text or "")
+        )
+        if metadata_size > MAX_METADATA_BYTES:
+            raise ValueError("Environment metadata is too large")
+        distributions.append(
+            {
+                "name": name,
+                "version": version,
+                "requires_python": requires_python,
+                "requires": requires,
+                "direct_url": json.loads(direct_text) if direct_text else None,
+            }
+        )
+    return {
+        "version": identity["version"],
+        "prefix": str(environment.resolve()),
+        "base_prefix": identity["home"],
+        "marker_environment": marker,
+        "distributions": distributions,
+        "include_system_site_packages": False,
+        "interpreter": str(executable.resolve()),
+        "base_executable": identity["base_executable"],
+        "implementation": identity["implementation"],
+    }
+
+
+def _version_matches(version: str, specifier: SpecifierSet) -> bool | None:
+    """Return None when major.minor metadata cannot decide a patch-sensitive constraint."""
+    parsed = Version(version)
+    if parsed.micro or version.count(".") >= 2:
+        return version in specifier
+    for constraint in specifier:
+        raw_boundary = constraint.version
+        wildcard = raw_boundary.endswith(".*")
+        boundary = Version(raw_boundary.removesuffix(".*"))
+        if (boundary.major, boundary.minor) != (parsed.major, parsed.minor):
+            continue
+        plain_zero = (
+            boundary.micro == 0
+            and boundary.epoch == 0
+            and boundary.pre is None
+            and boundary.post is None
+            and boundary.dev is None
+            and boundary.local is None
+        )
+        safe_wildcard = wildcard and len(boundary.release) <= 2
+        safe_same_family = safe_wildcard or (
+            constraint.operator in {">=", "<", "~="} and plain_zero
+        )
+        if not safe_same_family:
+            return None
+    return Version(f"{parsed.major}.{parsed.minor}.0") in specifier
+
+
+def _marker_applies(marker, probe: dict) -> bool | None:
+    text = str(marker)
+    full_version = probe["version"].count(".") >= 2
+    implementation = (probe.get("implementation") or "").casefold()
+    if not full_version and "python_full_version" in text:
+        return None
+    if "implementation_version" in text and (not full_version or implementation != "cpython"):
+        return None
+    if not implementation and any(
+        field in text for field in ("implementation_name", "platform_python_implementation")
+    ):
+        return None
+    return marker.evaluate(probe["marker_environment"])
 
 
 def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
     issues = []
-    if probe["version"] not in SpecifierSet(item["python"]):
+    python_match = _version_matches(probe["version"], SpecifierSet(item["python"]))
+    if python_match is None:
+        issues.append("metadata_insufficient:python_patch_version")
+    elif not python_match:
         issues.append("python_version_mismatch")
+    environment = (repo / item["environment"]).resolve()
+    executable = python_path(environment).resolve()
     if (
-        Path(probe["prefix"]).resolve() != (repo / item["environment"]).resolve()
+        Path(probe["prefix"]).resolve() != environment
         or probe["prefix"] == probe["base_prefix"]
+        or Path(probe["interpreter"]).resolve() != executable
+        or probe.get("include_system_site_packages") is not False
     ):
         issues.append("environment_identity_mismatch")
     distributions = {}
@@ -233,10 +388,19 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
         if name in distributions:
             issues.append(f"duplicate_distribution:{name}")
         distributions[name] = dist
-    marker = probe["marker_environment"]
+    active_lock = []
     for requirement in lock_requirements((repo / item["lock"]).read_text(encoding="utf-8")):
-        if requirement.marker and not requirement.marker.evaluate(marker):
-            continue
+        if requirement.marker:
+            applies = _marker_applies(requirement.marker, probe)
+            if applies is None:
+                active_lock.append(requirement)
+                issues.append(
+                    f"metadata_insufficient:lock_marker:{canonicalize_name(requirement.name)}"
+                )
+                continue
+            if not applies:
+                continue
+        active_lock.append(requirement)
         name = canonicalize_name(requirement.name)
         installed = distributions.get(name)
         if installed is None:
@@ -245,8 +409,14 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
             expected = requirement.url.rsplit("@", 1)[1]
             direct = installed.get("direct_url") or {}
             expected_url = requirement.url.removeprefix("git+").rsplit("@", 1)[0]
+            vcs = direct.get("vcs_info")
             if (
-                direct.get("vcs_info", {}).get("commit_id") != expected
+                set(direct) != {"url", "vcs_info"}
+                or not isinstance(vcs, dict)
+                or set(vcs) != {"vcs", "requested_revision", "commit_id"}
+                or vcs.get("vcs") != "git"
+                or vcs.get("requested_revision") != expected
+                or vcs.get("commit_id") != expected
                 or direct.get("url") != expected_url
             ):
                 issues.append(f"locked_git_mismatch:{name}")
@@ -256,18 +426,37 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
     direct = own.get("direct_url") or {}
     uri = urlsplit(direct.get("url", ""))
     if (
-        uri.scheme != "file"
+        set(direct) != {"url", "dir_info"}
+        or direct.get("dir_info") != {"editable": True}
+        or uri.scheme != "file"
         or uri.netloc not in ("", "localhost")
-        or not direct.get("dir_info", {}).get("editable")
         or Path(url2pathname(uri.path)).resolve() != repo.resolve()
     ):
         issues.append("editable_source_mismatch")
+
+    active_names = {canonicalize_name(requirement.name) for requirement in active_lock}
+    permitted_names = active_names | {canonicalize_name(item["distribution"])}
+    for name in sorted(distributions.keys() - permitted_names):
+        distribution = distributions[name]
+        if name != "pip" or distribution.get("direct_url") is not None:
+            issues.append(f"unlocked_distribution:{name}")
     for name, dist in distributions.items():
+        if dist.get("requires_python"):
+            matches = _version_matches(probe["version"], SpecifierSet(dist["requires_python"]))
+            if matches is None:
+                issues.append(f"metadata_insufficient:requires_python:{name}")
+            elif not matches:
+                issues.append(f"incompatible_python:{name}")
         for raw in dist["requires"]:
             requirement = Requirement(raw)
-            if requirement.marker and not requirement.marker.evaluate(marker):
-                continue
             dependency = canonicalize_name(requirement.name)
+            if requirement.marker:
+                applies = _marker_applies(requirement.marker, probe)
+                if applies is None:
+                    issues.append(f"metadata_insufficient:dependency_marker:{name}:{dependency}")
+                    continue
+                if not applies:
+                    continue
             target = distributions.get(dependency)
             if target is None:
                 issues.append(f"missing_dependency:{name}:{dependency}")
@@ -276,12 +465,40 @@ def _environment_issues(item: dict, repo: Path, probe: dict) -> list[str]:
     return issues
 
 
+def _bootstrap_tools(item: dict, repo: Path, probe: dict) -> list[dict]:
+    pip_locked = False
+    for requirement in lock_requirements((repo / item["lock"]).read_text(encoding="utf-8")):
+        if canonicalize_name(requirement.name) != "pip":
+            continue
+        applies = _marker_applies(requirement.marker, probe) if requirement.marker else True
+        if applies is None:
+            pip_locked = None
+            break
+        if applies:
+            pip_locked = True
+    tools = []
+    for distribution in probe["distributions"]:
+        if canonicalize_name(distribution["name"]) == "pip":
+            tools.append(
+                {
+                    "name": "pip",
+                    "version": distribution["version"],
+                    "locked": pip_locked,
+                    "lock_applicability_verified": pip_locked is not None,
+                    "content_authenticated": False,
+                }
+            )
+    return tools
+
+
 def check_runtime(path: Path, root: Path) -> dict:
     profile, sha = _load(path)
     rows = []
     for item in profile["projects"]:
         repo, issues = _source(item, Path(root).resolve())
         version = None
+        environment_metadata = None
+        bootstrap_tools = []
         if not issues:
             environment = _inside(repo, item["environment"])
             executable = python_path(environment)
@@ -289,8 +506,16 @@ def check_runtime(path: Path, root: Path) -> dict:
                 issues.append("environment_missing")
             else:
                 try:
-                    probed = _probe(executable, repo)
+                    probed = _read_environment(environment, executable)
                     version = probed["version"]
+                    environment_metadata = {
+                        "interpreter": probed["interpreter"],
+                        "home": probed["base_prefix"],
+                        "base_executable": probed["base_executable"],
+                        "implementation": probed["implementation"],
+                        "include_system_site_packages": probed["include_system_site_packages"],
+                    }
+                    bootstrap_tools = _bootstrap_tools(item, repo, probed)
                     issues.extend(_environment_issues(item, repo, probed))
                     _, after = _source(item, Path(root).resolve())
                     issues.extend(after)
@@ -307,6 +532,8 @@ def check_runtime(path: Path, root: Path) -> dict:
                 "id": item["id"],
                 "revision": item["revision"],
                 "python_version": version,
+                "environment": environment_metadata,
+                "bootstrap_tools": bootstrap_tools,
                 "status": "blocked" if issues else "ready",
                 "issues": sorted(set(issues)),
             }
@@ -325,8 +552,54 @@ def check_runtime(path: Path, root: Path) -> dict:
             "market_data_certified": False,
             "release_verified": False,
             "dependency_content_authenticated": False,
+            "environment_metadata_authenticated": False,
+            "interpreter_binary_authenticated": False,
+            "target_interpreter_executed": False,
         },
     }
+
+
+def _output_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _write_step_log(
+    environment: Path,
+    index: int,
+    command: list[str],
+    status: str,
+    *,
+    returncode: int | None = None,
+    stdout="",
+    stderr="",
+    error_type: str | None = None,
+    error: str | None = None,
+    issues: list[str] | None = None,
+) -> None:
+    payload = {
+        "schema_version": "quant.runtime-bootstrap-step/v1",
+        "step": index,
+        "command": command,
+        "status": status,
+        "returncode": returncode,
+        "stdout": _output_text(stdout),
+        "stderr": _output_text(stderr),
+        "error_type": error_type,
+        "error": error,
+        "issues": issues or [],
+    }
+    target = environment / f"bootstrap-{index}.log"
+    temporary = environment / f"bootstrap-{index}.log.tmp"
+    with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+        json.dump(payload, stream, ensure_ascii=False, sort_keys=True, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(target)
 
 
 def bootstrap(path: Path, root: Path, project: str, *, execute: bool = False) -> dict:
@@ -377,20 +650,68 @@ def bootstrap(path: Path, root: Path, project: str, *, execute: bool = False) ->
         environment.mkdir(parents=False, exist_ok=False)
         for index, command in enumerate(commands):
             _, current_issues = _source(item, Path(root).resolve())
-            if current_issues or digest(Path(path).read_bytes()) != sha:
+            profile_changed = digest(Path(path).read_bytes()) != sha
+            if current_issues or profile_changed:
+                issues = list(current_issues)
+                if profile_changed:
+                    issues.append("profile_changed_during_bootstrap")
+                _write_step_log(environment, index, command, "blocked", issues=issues)
                 raise ValueError("Profile or source changed during bootstrap; environment retained")
-            result = subprocess.run(
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=repo,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=900,
+                    check=False,
+                )
+            except KeyboardInterrupt as exc:
+                _write_step_log(
+                    environment,
+                    index,
+                    command,
+                    "interrupted",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+                raise
+            except subprocess.TimeoutExpired as exc:
+                _write_step_log(
+                    environment,
+                    index,
+                    command,
+                    "timed_out",
+                    stdout=exc.stdout,
+                    stderr=exc.stderr,
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+                raise ValueError(
+                    f"Bootstrap step {index} timed out; incomplete environment retained"
+                ) from exc
+            except (OSError, subprocess.SubprocessError) as exc:
+                _write_step_log(
+                    environment,
+                    index,
+                    command,
+                    "failed",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+                raise ValueError(
+                    f"Bootstrap step {index} failed; incomplete environment retained"
+                ) from exc
+            _write_step_log(
+                environment,
+                index,
                 command,
-                cwd=repo,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=900,
-                check=False,
-            )
-            (environment / f"bootstrap-{index}.log").write_text(
-                result.stdout + result.stderr, encoding="utf-8"
+                "succeeded" if result.returncode == 0 else "failed",
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
             )
             if result.returncode:
                 raise ValueError(f"Bootstrap step {index} failed; incomplete environment retained")

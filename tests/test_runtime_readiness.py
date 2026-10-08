@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
+from packaging.markers import Marker
+from packaging.specifiers import SpecifierSet
 
 from quant_workspace import runtime_readiness as runtime
 from quant_workspace.cli import main
@@ -40,11 +40,16 @@ def checkout(tmp_path):
 
 
 def probe(repo, version="26.3"):
+    executable = runtime.python_path(repo / ".venv").resolve()
     return {
         "prefix": str(repo / ".venv"),
         "base_prefix": str(repo / "base"),
         "version": "3.12.14",
         "marker_environment": {"python_version": "3.12", "extra": ""},
+        "include_system_site_packages": False,
+        "interpreter": str(executable),
+        "base_executable": None,
+        "implementation": "CPython",
         "distributions": [
             {"name": "packaging", "version": version, "requires": [], "direct_url": None},
             {
@@ -61,7 +66,58 @@ def prepare_probe(monkeypatch, repo, value=None):
     executable = runtime.python_path(repo / ".venv")
     executable.parent.mkdir(parents=True)
     executable.touch()
-    monkeypatch.setattr(runtime, "_probe", lambda *args: value or probe(repo))
+    monkeypatch.setattr(runtime, "_read_environment", lambda *args: value or probe(repo))
+
+
+def write_distribution(site, name, version, *, requires=(), requires_python=None, direct_url=None):
+    metadata = site / f"{name.replace('-', '_')}-{version}.dist-info"
+    metadata.mkdir()
+    lines = ["Metadata-Version: 2.1", f"Name: {name}", f"Version: {version}"]
+    if requires_python:
+        lines.append(f"Requires-Python: {requires_python}")
+    lines.extend(f"Requires-Dist: {requirement}" for requirement in requires)
+    (metadata / "METADATA").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if direct_url is not None:
+        (metadata / "direct_url.json").write_text(json.dumps(direct_url), encoding="utf-8")
+
+
+def write_metadata_environment(repo, layout="windows", *, uv=False):
+    environment = repo / f".{layout}-venv"
+    home = repo / f"{layout}-base"
+    home.mkdir()
+    if layout == "windows":
+        executable = environment / "Scripts" / "python.exe"
+        base_executable = home / "python.exe"
+        site = environment / "Lib" / "site-packages"
+    else:
+        executable = environment / "bin" / "python"
+        base_executable = home / "python3.12"
+        site = environment / "lib" / "python3.12" / "site-packages"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    base_executable.touch()
+    site.mkdir(parents=True)
+    if uv:
+        config = (
+            f"home = {home}\nimplementation = CPython\nversion_info = 3.12\n"
+            "include-system-site-packages = false\n"
+        )
+    else:
+        config = (
+            f"home = {home}\ninclude-system-site-packages = false\nversion = 3.12.14\n"
+            f"executable = {base_executable}\n"
+        )
+    (environment / "pyvenv.cfg").write_text(config, encoding="utf-8")
+    write_distribution(site, "packaging", "26.3")
+    write_distribution(
+        site,
+        "sample",
+        "0.1",
+        requires=["packaging>=23"],
+        requires_python=">=3.12",
+        direct_url={"url": repo.as_uri(), "dir_info": {"editable": True}},
+    )
+    return environment, executable, site
 
 
 def test_profile_pins_clean_source_and_lock_without_runtime_claim(checkout):
@@ -85,6 +141,8 @@ def test_ready_probe_checks_editable_source_and_lock(monkeypatch, checkout):
     assert report["status"] == "ready"
     assert report["projects"][0]["issues"] == []
     assert report["claims"]["market_data_certified"] is False
+    assert report["claims"]["target_interpreter_executed"] is False
+    assert report["claims"]["interpreter_binary_authenticated"] is False
     assert git(repo, "status", "--porcelain") == before
 
 
@@ -115,9 +173,87 @@ def test_environment_mismatch_blocks(monkeypatch, checkout, mutation, expected):
     assert expected in result["projects"][0]["issues"]
 
 
-def test_dirty_and_wrong_revision_do_not_invoke_python(monkeypatch, checkout):
+def test_unlocked_distribution_blocks_but_bootstrap_pip_is_reported(monkeypatch, checkout):
     repo, path, workspace = checkout
-    monkeypatch.setattr(runtime, "_probe", lambda *a: pytest.fail("untrusted checkout executed"))
+    value = probe(repo)
+    value["distributions"].append(
+        {"name": "unlocked-extra", "version": "1", "requires": [], "direct_url": None}
+    )
+    prepare_probe(monkeypatch, repo, value)
+    row = runtime.check_runtime(path, workspace.root)["projects"][0]
+    assert "unlocked_distribution:unlocked-extra" in row["issues"]
+
+    value["distributions"].pop()
+    value["distributions"].append(
+        {"name": "pip", "version": "25.0", "requires": [], "direct_url": None}
+    )
+    row = runtime.check_runtime(path, workspace.root)["projects"][0]
+    assert row["status"] == "ready"
+    assert row["bootstrap_tools"] == [
+        {
+            "name": "pip",
+            "version": "25.0",
+            "locked": False,
+            "lock_applicability_verified": True,
+            "content_authenticated": False,
+        }
+    ]
+    value["distributions"][-1]["direct_url"] = {
+        "url": "https://example.invalid/pip.whl",
+        "archive_info": {},
+    }
+    row = runtime.check_runtime(path, workspace.root)["projects"][0]
+    assert "unlocked_distribution:pip" in row["issues"]
+
+
+def test_major_minor_metadata_blocks_patch_sensitive_constraints(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    (repo / "requirements.lock").write_text("packaging==26.3 ; python_full_version >= '3.12.1'\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "patch-sensitive metadata")
+    profile = runtime.create_profile(workspace, ["sample"], python=">=3.12.1,<3.13")
+    path.write_text(json.dumps(profile))
+    value = probe(repo)
+    value["version"] = "3.12"
+    value["marker_environment"]["python_full_version"] = "3.12"
+    value["distributions"][0]["requires_python"] = ">=3.12.1"
+    value["distributions"][1]["requires"] = ["packaging; python_full_version >= '3.12.1'"]
+    prepare_probe(monkeypatch, repo, value)
+    issues = set(runtime.check_runtime(path, workspace.root)["projects"][0]["issues"])
+    assert {
+        "metadata_insufficient:python_patch_version",
+        "metadata_insufficient:lock_marker:packaging",
+        "metadata_insufficient:requires_python:packaging",
+        "metadata_insufficient:dependency_marker:sample:packaging",
+    } <= issues
+
+
+@pytest.mark.parametrize(
+    "specifier",
+    ["!=3.12.1", "!=3.12.1.*", ">3.12.0,<3.12.999999", "==3.12", "<=3.12.0"],
+)
+def test_major_minor_version_never_proves_patch_sensitive_set(specifier):
+    assert runtime._version_matches("3.12", SpecifierSet(specifier)) is None
+    assert runtime._version_matches("3.12", SpecifierSet(">=3.12,<3.13")) is True
+
+
+def test_marker_evaluation_blocks_unavailable_implementation_metadata(checkout):
+    repo, _, _ = checkout
+    value = probe(repo)
+    value["version"] = "3.12"
+    assert runtime._marker_applies(Marker("implementation_version >= '3.12.1'"), value) is None
+    value["version"] = "3.12.14"
+    value["implementation"] = None
+    assert runtime._marker_applies(Marker("implementation_name == 'cpython'"), value) is None
+
+
+def test_dirty_and_wrong_revision_do_not_read_environment(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    monkeypatch.setattr(
+        runtime,
+        "_read_environment",
+        lambda *a: pytest.fail("untrusted checkout environment read"),
+    )
     (repo / "requirements.lock").write_text("packaging==20\n")
     result = runtime.check_runtime(path, workspace.root)
     assert {"dirty_checkout", "lock_mismatch"} <= set(result["projects"][0]["issues"])
@@ -170,16 +306,65 @@ def test_lock_parser_handles_markers_hashes_and_rejects_unpinned():
             runtime.lock_requirements(text)
 
 
-def test_actual_isolated_probe_collects_metadata():
-    result = runtime._probe(Path(sys.executable), Path.cwd())
-    assert result["version"].startswith("3.")
-    assert any(d["name"].lower() == "packaging" for d in result["distributions"])
+@pytest.mark.parametrize("layout", ["windows", "posix"])
+def test_metadata_reader_supports_windows_and_posix_without_executing_pth(tmp_path, layout):
+    repo = tmp_path / "sample"
+    repo.mkdir()
+    environment, executable, site = write_metadata_environment(repo, layout)
+    marker = tmp_path / "executed"
+    (site / "malicious.pth").write_text(
+        f"import pathlib; pathlib.Path({str(marker)!r}).write_text('executed')\n",
+        encoding="utf-8",
+    )
+    result = runtime._read_environment(environment, executable)
+    assert result["version"] == "3.12.14"
+    assert result["interpreter"] == str(executable.resolve())
+    assert result["base_executable"] is not None
+    assert {d["name"] for d in result["distributions"]} == {"packaging", "sample"}
+    assert (
+        next(d for d in result["distributions"] if d["name"] == "sample")["requires_python"]
+        == ">=3.12"
+    )
+    assert not marker.exists()
+
+
+def test_metadata_reader_supports_uv_version_info_and_rejects_system_site_packages(tmp_path):
+    repo = tmp_path / "sample"
+    repo.mkdir()
+    environment, executable, _ = write_metadata_environment(repo, "posix", uv=True)
+    result = runtime._read_environment(environment, executable)
+    assert result["version"] == "3.12"
+    assert result["base_executable"] is None
+    config = environment / "pyvenv.cfg"
+    config.write_text(
+        config.read_text().replace(
+            "include-system-site-packages = false", "include-system-site-packages = true"
+        )
+    )
+    with pytest.raises(ValueError, match="System site packages"):
+        runtime._read_environment(environment, executable)
+
+
+def test_metadata_reader_requires_interpreter_and_matching_base_path(tmp_path):
+    repo = tmp_path / "sample"
+    repo.mkdir()
+    environment, executable, _ = write_metadata_environment(repo)
+    executable.unlink()
+    with pytest.raises(ValueError, match="interpreter is missing"):
+        runtime._read_environment(environment, executable)
+    executable.touch()
+    config = environment / "pyvenv.cfg"
+    config.write_text(config.read_text().replace("executable = ", "executable = C:/wrong/"))
+    with pytest.raises(ValueError, match="executable does not match home"):
+        runtime._read_environment(environment, executable)
 
 
 def test_git_lock_commit_and_provider_must_match(monkeypatch, checkout):
     repo, path, workspace = checkout
     sha = "a" * 40
-    requirement = f"dependency @ git+https://example.invalid/dependency.git@{sha}\n"
+    requirement = (
+        f"packaging==26.3\ndependency @ git+https://example.invalid/dependency.git@{sha}\n"
+    )
     (repo / "requirements.lock").write_text(requirement)
     git(repo, "add", ".")
     git(repo, "commit", "-m", "git dependency")
@@ -193,13 +378,37 @@ def test_git_lock_commit_and_provider_must_match(monkeypatch, checkout):
             "requires": [],
             "direct_url": {
                 "url": "https://example.invalid/dependency.git",
-                "vcs_info": {"commit_id": sha},
+                "vcs_info": {
+                    "vcs": "git",
+                    "requested_revision": sha,
+                    "commit_id": sha,
+                },
             },
         }
     )
     prepare_probe(monkeypatch, repo, value)
     assert runtime.check_runtime(path, workspace.root)["status"] == "ready"
     value["distributions"][-1]["direct_url"]["url"] = "https://other.invalid/dependency.git"
+    assert (
+        "locked_git_mismatch:dependency"
+        in runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
+    )
+    value["distributions"][-1]["direct_url"] = {
+        "url": "https://example.invalid/dependency.git",
+        "vcs_info": {"vcs": "git", "commit_id": sha},
+    }
+    assert (
+        "locked_git_mismatch:dependency"
+        in runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
+    )
+    value["distributions"][-1]["direct_url"] = {
+        "url": "https://example.invalid/dependency.git",
+        "vcs_info": {
+            "vcs": "hg",
+            "requested_revision": sha,
+            "commit_id": sha,
+        },
+    }
     assert (
         "locked_git_mismatch:dependency"
         in runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
@@ -237,7 +446,11 @@ def test_bootstrap_executes_fixed_argv_and_preserves_failure_logs(monkeypatch, c
     with pytest.raises(ValueError, match="incomplete environment retained"):
         runtime.bootstrap(path, workspace.root, "sample", execute=True)
     assert len(commands) == 1
-    assert (repo / ".venv/bootstrap-0.log").read_text() == "partial installfailure"
+    logged = json.loads((repo / ".venv/bootstrap-0.log").read_text())
+    assert logged["status"] == "failed"
+    assert logged["returncode"] == 1
+    assert logged["stdout"] == "partial install"
+    assert logged["stderr"] == "failure"
 
 
 def test_bootstrap_success_verifies_selected_environment(monkeypatch, checkout):
@@ -253,9 +466,50 @@ def test_bootstrap_success_verifies_selected_environment(monkeypatch, checkout):
         return subprocess.CompletedProcess(command, 0, "ok", "")
 
     monkeypatch.setattr(runtime.subprocess, "run", invoke)
-    monkeypatch.setattr(runtime, "_probe", lambda *a: probe(repo))
+    monkeypatch.setattr(runtime, "_read_environment", lambda *a: probe(repo))
     assert runtime.bootstrap(path, workspace.root, "sample", execute=True)["executed"]
     assert len(list((repo / ".venv").glob("bootstrap-*.log"))) == 4
+    assert all(
+        json.loads(log.read_text())["status"] == "succeeded"
+        for log in (repo / ".venv").glob("bootstrap-*.log")
+    )
+
+
+def test_bootstrap_timeout_retains_structured_partial_output(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    real_run = subprocess.run
+
+    def invoke(command, **kwargs):
+        if command[0] == "git":
+            return real_run(command, **kwargs)
+        raise subprocess.TimeoutExpired(command, 900, output=b"partial", stderr=b"timed out")
+
+    monkeypatch.setattr(runtime.subprocess, "run", invoke)
+    with pytest.raises(ValueError, match="timed out; incomplete environment retained"):
+        runtime.bootstrap(path, workspace.root, "sample", execute=True)
+    logged = json.loads((repo / ".venv/bootstrap-0.log").read_text())
+    assert logged["schema_version"] == "quant.runtime-bootstrap-step/v1"
+    assert logged["status"] == "timed_out"
+    assert logged["stdout"] == "partial"
+    assert logged["stderr"] == "timed out"
+    assert logged["error_type"] == "TimeoutExpired"
+
+
+def test_bootstrap_interrupt_retains_structured_log(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    real_run = subprocess.run
+
+    def invoke(command, **kwargs):
+        if command[0] == "git":
+            return real_run(command, **kwargs)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(runtime.subprocess, "run", invoke)
+    with pytest.raises(KeyboardInterrupt):
+        runtime.bootstrap(path, workspace.root, "sample", execute=True)
+    logged = json.loads((repo / ".venv/bootstrap-0.log").read_text())
+    assert logged["status"] == "interrupted"
+    assert logged["error_type"] == "KeyboardInterrupt"
 
 
 def test_cli_reports_missing_environment_without_writes(checkout, capsys):
@@ -287,6 +541,6 @@ def test_source_mutation_during_probe_is_detected(monkeypatch, checkout):
         (repo / "requirements.lock").write_text("packaging==99\n")
         return probe(repo)
 
-    monkeypatch.setattr(runtime, "_probe", mutate)
+    monkeypatch.setattr(runtime, "_read_environment", mutate)
     issues = runtime.check_runtime(path, workspace.root)["projects"][0]["issues"]
     assert "lock_mismatch" in issues and "dirty_checkout" in issues
