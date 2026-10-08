@@ -418,7 +418,7 @@ def test_metadata_reader_requires_interpreter_and_existing_creator(tmp_path):
         runtime._read_environment(environment, executable)
 
 
-def test_pyvenv_records_existing_venv_as_creation_executable(tmp_path):
+def test_pyvenv_preserves_optional_creation_executable(tmp_path):
     environment = tmp_path / "nested-venv"
     subprocess.run(
         [sys.executable, "-I", "-m", "venv", "--without-pip", str(environment)],
@@ -427,7 +427,11 @@ def test_pyvenv_records_existing_venv_as_creation_executable(tmp_path):
         text=True,
     )
     identity = runtime._read_pyvenv(environment, runtime.python_path(environment))
-    assert identity["creation_executable"] == str(Path(sys.executable).resolve())
+    configured = identity["fields"].get("executable")
+    expected = str(Path(configured).resolve()) if configured else None
+    assert identity["creation_executable"] == expected
+    if configured:
+        assert identity["creation_executable"] == str(Path(sys.executable).resolve())
 
 
 def test_git_lock_commit_and_provider_must_match(monkeypatch, checkout):
