@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -52,6 +53,9 @@ def probe(repo, version="26.3"):
         "interpreter": str(executable),
         "creation_executable": None,
         "implementation": "CPython",
+        "implementation_name": "cpython",
+        "implementation_version": "3.12.14",
+        "metadata_source": "fixture",
         "distributions": [
             {"name": "packaging", "version": version, "requires": [], "direct_url": None},
             {
@@ -253,9 +257,11 @@ def test_marker_evaluation_blocks_unavailable_implementation_metadata(checkout):
     repo, _, _ = checkout
     value = probe(repo)
     value["version"] = "3.12"
+    value["implementation_version"] = None
     assert runtime._marker_applies(Marker("implementation_version >= '3.12.1'"), value) is None
     value["version"] = "3.12.14"
     value["implementation"] = None
+    value["implementation_name"] = None
     assert runtime._marker_applies(Marker("implementation_name == 'cpython'"), value) is None
 
 
@@ -395,6 +401,9 @@ def test_metadata_reader_supports_uv_version_info_and_rejects_system_site_packag
     assert result["version"] == "3.12"
     assert result["creation_executable"] is None
     config = environment / "pyvenv.cfg"
+    config.write_text(config.read_text().replace("version_info = 3.12", "version_info = 3.12.14"))
+    complete = runtime._read_environment(environment, executable)
+    assert complete["implementation_version"] == "3.12.14"
     config.write_text(
         config.read_text().replace(
             "include-system-site-packages = false", "include-system-site-packages = true"
@@ -418,6 +427,17 @@ def test_metadata_reader_requires_interpreter_and_existing_creator(tmp_path):
         runtime._read_environment(environment, executable)
 
 
+def test_metadata_reader_rejects_partial_bootstrap_record(tmp_path):
+    repo = tmp_path / "sample"
+    repo.mkdir()
+    environment, executable, _ = write_metadata_environment(repo)
+    config = environment / "pyvenv.cfg"
+    with config.open("a", encoding="utf-8") as stream:
+        stream.write("quant-workspace-metadata-source = trusted-bootstrap-creator\n")
+    with pytest.raises(ValueError, match="Bootstrap metadata is incomplete"):
+        runtime._read_environment(environment, executable)
+
+
 def test_pyvenv_preserves_optional_creation_executable(tmp_path):
     environment = tmp_path / "nested-venv"
     subprocess.run(
@@ -426,12 +446,30 @@ def test_pyvenv_preserves_optional_creation_executable(tmp_path):
         capture_output=True,
         text=True,
     )
+    config = environment / "pyvenv.cfg"
+    before = config.read_bytes()
     identity = runtime._read_pyvenv(environment, runtime.python_path(environment))
     configured = identity["fields"].get("executable")
     expected = str(Path(configured).resolve()) if configured else None
     assert identity["creation_executable"] == expected
     if configured:
         assert identity["creation_executable"] == str(Path(sys.executable).resolve())
+    assert identity["implementation_name"] is None
+    unrecorded = runtime._read_environment(environment, runtime.python_path(environment))
+    assert runtime._marker_applies(Marker('implementation_name != "pypy"'), unrecorded) is None
+    assert config.read_bytes() == before
+
+    runtime._record_bootstrap_metadata(environment)
+    recorded = runtime._read_environment(environment, runtime.python_path(environment))
+    assert recorded["metadata_source"] == "trusted-bootstrap-creator"
+    assert recorded["implementation_name"] == sys.implementation.name
+    assert recorded["implementation_version"] == runtime._current_implementation_version()
+    assert runtime._marker_applies(Marker("implementation_version >= '0'"), recorded) is True
+    assert runtime._marker_applies(Marker('implementation_name != "pypy"'), recorded) is True
+    with config.open("a", encoding="utf-8") as stream:
+        stream.write("implementation = PyPy\n")
+    with pytest.raises(ValueError, match="conflicts with pyvenv.cfg"):
+        runtime._read_environment(environment, runtime.python_path(environment))
 
 
 def test_git_lock_commit_and_provider_must_match(monkeypatch, checkout):
@@ -607,6 +645,14 @@ def test_bootstrap_success_verifies_selected_environment(monkeypatch, checkout):
         target = runtime.python_path(repo / ".venv")
         target.parent.mkdir(exist_ok=True)
         target.touch()
+        config = repo / ".venv" / "pyvenv.cfg"
+        if not config.exists():
+            config.write_text(
+                f"home = {Path(sys.base_prefix)}\n"
+                "include-system-site-packages = false\n"
+                f"version = {platform.python_version()}\n"
+                f"executable = {Path(sys.executable)}\n"
+            )
         return subprocess.CompletedProcess(command, 0, "ok", "")
 
     monkeypatch.setattr(runtime.subprocess, "run", invoke)
@@ -617,6 +663,30 @@ def test_bootstrap_success_verifies_selected_environment(monkeypatch, checkout):
         json.loads(log.read_text())["status"] == "succeeded"
         for log in (repo / ".venv").glob("bootstrap-*.log")
     )
+    identity = runtime._read_pyvenv(repo / ".venv", runtime.python_path(repo / ".venv"))
+    assert identity["metadata_source"] == "trusted-bootstrap-creator"
+
+
+def test_bootstrap_metadata_failure_retains_structured_log(monkeypatch, checkout):
+    repo, path, workspace = checkout
+    real_run = subprocess.run
+
+    def invoke(command, **kwargs):
+        if command[0] == "git":
+            return real_run(command, **kwargs)
+        target = runtime.python_path(repo / ".venv")
+        target.parent.mkdir(exist_ok=True)
+        target.touch()
+        return subprocess.CompletedProcess(command, 0, "venv created", "")
+
+    monkeypatch.setattr(runtime.subprocess, "run", invoke)
+    with pytest.raises(ValueError, match="metadata recording failed"):
+        runtime.bootstrap(path, workspace.root, "sample", execute=True)
+    logged = json.loads((repo / ".venv/bootstrap-0.log").read_text())
+    assert logged["status"] == "failed"
+    assert logged["returncode"] == 0
+    assert logged["stdout"] == "venv created"
+    assert logged["error_type"] == "FileNotFoundError"
 
 
 def test_bootstrap_timeout_retains_structured_partial_output(monkeypatch, checkout):

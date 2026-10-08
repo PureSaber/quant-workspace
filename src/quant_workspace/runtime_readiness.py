@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata as importlib_metadata
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -29,6 +30,14 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
 SCHEMA = "quant.runtime-profile/v1"
 FIELDS = {"id", "repo", "revision", "lock", "lock_sha256", "distribution", "python", "environment"}
 MAX_METADATA_BYTES = 4_000_000
+BOOTSTRAP_METADATA = {
+    "quant-workspace-metadata-version",
+    "quant-workspace-metadata-source",
+    "quant-workspace-python-full-version",
+    "quant-workspace-implementation-name",
+    "quant-workspace-implementation-version",
+    "quant-workspace-platform-python-implementation",
+}
 
 
 def digest(raw: bytes) -> str:
@@ -226,6 +235,45 @@ def _load(path: Path) -> tuple[dict, str]:
     return profile, digest(raw)
 
 
+def _current_implementation_version() -> str:
+    value = sys.implementation.version
+    version = f"{value.major}.{value.minor}.{value.micro}"
+    if value.releaselevel != "final":
+        version += value.releaselevel[0] + str(value.serial)
+    return version
+
+
+def _record_bootstrap_metadata(environment: Path) -> None:
+    """Record facts from the trusted creator after a new venv command succeeds."""
+    config = environment / "pyvenv.cfg"
+    raw = config.read_bytes()
+    if len(raw) > 65_536:
+        raise ValueError("pyvenv.cfg is too large")
+    text = raw.decode("utf-8-sig")
+    existing = {
+        line.split("=", 1)[0].strip().casefold() for line in text.splitlines() if "=" in line
+    }
+    if existing & BOOTSTRAP_METADATA:
+        raise ValueError("Bootstrap metadata already exists")
+    values = {
+        "quant-workspace-metadata-version": "1",
+        "quant-workspace-metadata-source": "trusted-bootstrap-creator",
+        "quant-workspace-python-full-version": platform.python_version(),
+        "quant-workspace-implementation-name": sys.implementation.name,
+        "quant-workspace-implementation-version": _current_implementation_version(),
+        "quant-workspace-platform-python-implementation": platform.python_implementation(),
+    }
+    newline = "\r\n" if "\r\n" in text else "\n"
+    updated = text.rstrip("\r\n") + newline
+    updated += newline.join(f"{key} = {values[key]}" for key in sorted(values)) + newline
+    temporary = environment / "pyvenv.cfg.quant-workspace.tmp"
+    with temporary.open("x", encoding="utf-8", newline="") as stream:
+        stream.write(updated)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(config)
+
+
 def _read_pyvenv(environment: Path, executable: Path) -> dict:
     """Read venv identity without starting its interpreter or processing .pth files."""
     config = environment / "pyvenv.cfg"
@@ -272,13 +320,49 @@ def _read_pyvenv(environment: Path, executable: Path) -> dict:
             raise ValueError("pyvenv.cfg creation executable must be an existing absolute file")
         creation_executable = str(candidate.resolve())
 
+    recorded = set(fields) & BOOTSTRAP_METADATA
+    if recorded and recorded != BOOTSTRAP_METADATA:
+        raise ValueError("Bootstrap metadata is incomplete")
+    implementation = fields.get("implementation")
+    implementation_name = implementation.casefold() if implementation else None
+    implementation_version = None
+    metadata_source = "pyvenv.cfg"
+    if recorded:
+        if (
+            fields["quant-workspace-metadata-version"] != "1"
+            or fields["quant-workspace-metadata-source"] != "trusted-bootstrap-creator"
+            or fields["quant-workspace-python-full-version"] != version_text
+        ):
+            raise ValueError("Bootstrap metadata does not match pyvenv.cfg")
+        implementation = fields["quant-workspace-platform-python-implementation"]
+        implementation_name = fields["quant-workspace-implementation-name"]
+        implementation_version = fields["quant-workspace-implementation-version"]
+        if (
+            not re.fullmatch(r"[a-z][a-z0-9_-]*", implementation_name)
+            or not implementation.strip()
+            or implementation.casefold() != implementation_name.casefold()
+        ):
+            raise ValueError("Bootstrap implementation metadata is invalid")
+        try:
+            Version(implementation_version)
+        except InvalidVersion as exc:
+            raise ValueError("Bootstrap implementation version is invalid") from exc
+        if fields.get("implementation", implementation).casefold() != implementation.casefold():
+            raise ValueError("Bootstrap implementation metadata conflicts with pyvenv.cfg")
+        metadata_source = "trusted-bootstrap-creator"
+    elif implementation_name == "cpython" and version_text.count(".") >= 2:
+        implementation_version = version_text
+
     return {
         "fields": fields,
         "version": version_text,
         "major_minor": f"{match.group(1)}.{match.group(2)}",
         "home": str(home.resolve()),
         "creation_executable": creation_executable,
-        "implementation": fields.get("implementation"),
+        "implementation": implementation,
+        "implementation_name": implementation_name,
+        "implementation_version": implementation_version,
+        "metadata_source": metadata_source,
     }
 
 
@@ -310,11 +394,10 @@ def _read_environment(environment: Path, executable: Path) -> dict:
         }
     )
     if identity["implementation"]:
-        implementation = identity["implementation"].casefold()
-        marker["implementation_name"] = implementation
+        marker["implementation_name"] = identity["implementation_name"]
         marker["platform_python_implementation"] = identity["implementation"]
-        if implementation == "cpython":
-            marker["implementation_version"] = identity["version"]
+    if identity["implementation_version"]:
+        marker["implementation_version"] = identity["implementation_version"]
 
     distributions = []
     metadata_size = 0
@@ -358,6 +441,9 @@ def _read_environment(environment: Path, executable: Path) -> dict:
         "interpreter": str(executable.resolve()),
         "creation_executable": identity["creation_executable"],
         "implementation": identity["implementation"],
+        "implementation_name": identity["implementation_name"],
+        "implementation_version": identity["implementation_version"],
+        "metadata_source": identity["metadata_source"],
     }
 
 
@@ -392,12 +478,11 @@ def _version_matches(version: str, specifier: SpecifierSet) -> bool | None:
 def _marker_applies(marker, probe: dict, *, extra: str = "") -> bool | None:
     text = str(marker)
     full_version = probe["version"].count(".") >= 2
-    implementation = (probe.get("implementation") or "").casefold()
     if not full_version and "python_full_version" in text:
         return None
-    if "implementation_version" in text and (not full_version or implementation != "cpython"):
+    if "implementation_version" in text and not probe.get("implementation_version"):
         return None
-    if not implementation and any(
+    if not probe.get("implementation_name") and any(
         field in text for field in ("implementation_name", "platform_python_implementation")
     ):
         return None
@@ -586,6 +671,9 @@ def check_runtime(path: Path, root: Path) -> dict:
                         "home": probed["base_prefix"],
                         "creation_executable": probed["creation_executable"],
                         "implementation": probed["implementation"],
+                        "implementation_name": probed["implementation_name"],
+                        "implementation_version": probed["implementation_version"],
+                        "metadata_source": probed["metadata_source"],
                         "include_system_site_packages": probed["include_system_site_packages"],
                     }
                     bootstrap_tools = _bootstrap_tools(item, repo, probed)
@@ -777,6 +865,37 @@ def bootstrap(path: Path, root: Path, project: str, *, execute: bool = False) ->
                 raise ValueError(
                     f"Bootstrap step {index} failed; incomplete environment retained"
                 ) from exc
+            if result.returncode == 0 and index == 0:
+                try:
+                    _record_bootstrap_metadata(environment)
+                except KeyboardInterrupt as exc:
+                    _write_step_log(
+                        environment,
+                        index,
+                        command,
+                        "interrupted",
+                        returncode=result.returncode,
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        error_type=type(exc).__name__,
+                        error=str(exc),
+                    )
+                    raise
+                except (OSError, UnicodeError, ValueError) as exc:
+                    _write_step_log(
+                        environment,
+                        index,
+                        command,
+                        "failed",
+                        returncode=result.returncode,
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        error_type=type(exc).__name__,
+                        error=str(exc),
+                    )
+                    raise ValueError(
+                        "Bootstrap metadata recording failed; incomplete environment retained"
+                    ) from exc
             _write_step_log(
                 environment,
                 index,
