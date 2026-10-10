@@ -35,12 +35,19 @@ _SENSITIVE_PARTS = {
 _SENSITIVE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".kdbx"}
 _SENSITIVE_CONTENT = re.compile(
     rb"-----BEGIN [A-Z ]*PRIVATE KEY-----|"
-    rb"(?:^|[{,])\s*['\"]?(?:password|passwd|api[_-]?key|access[_-]?token|secret[_-]?key|"
-    rb"client[_-]?secret)['\"]?\s*[:=]\s*(?!(?:['\"]?\$\{|['\"]?\{\{))\S[^\r\n]*\r?$",
+    rb"(?:^|[{,])\s*(?:export[ \t]+)?['\"]?(?:[a-z][a-z0-9_-]*[_-])?"
+    rb"(?:password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token|"
+    rb"secret(?:[_-]?access)?[_-]?key|client[_-]?secret|authorization)"
+    rb"['\"]?[ \t]*[:=][ \t]*(?![ \t]|['\"]?\$\{|['\"]?\{\{)\S[^\r\n]*|"
+    rb"[a-z][a-z0-9+.-]*://[^\s/:@]+:(?!\$\{|\{\{)[^\s/@]+@",
     re.IGNORECASE | re.MULTILINE,
 )
 _MAX_FILE = 1_000_000_000
 _MAX_TOTAL = 4_000_000_000
+_GENERATED_PATHS = {"migration-paths.generated.json", "migration_status.json"}
+_WINDOWS_DEVICES = {"con", "prn", "aux", "nul", "conin$", "conout$"} | {
+    prefix + str(index) for prefix in ("com", "lpt") for index in range(1, 10)
+}
 
 
 def _sha(raw: bytes) -> str:
@@ -62,9 +69,9 @@ def _file_sha(path: Path) -> str:
 
 
 def _canonical(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode(
-        "utf-8"
-    )
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
 
 
 def _relative(value: str, label: str) -> Path:
@@ -73,6 +80,13 @@ def _relative(value: str, label: str) -> Path:
     path = Path(value)
     if path.is_absolute() or path == Path(".") or ".." in path.parts or path.as_posix() != value:
         raise ValueError(f"{label} must be a canonical relative path")
+    if any(
+        part.rstrip(" .") != part
+        or part.split(".", 1)[0].casefold() in _WINDOWS_DEVICES
+        or any(ord(character) < 32 or character in '<>"|?*' for character in part)
+        for part in path.parts
+    ):
+        raise ValueError(f"{label} must be canonical on supported platforms")
     return path
 
 
@@ -109,7 +123,13 @@ def _has_symlink(root: Path, path: Path) -> bool:
 
 
 def _sensitive_path(path: Path) -> bool:
-    return any(part.casefold() in _SENSITIVE_PARTS for part in path.parts) or path.suffix.casefold() in _SENSITIVE_SUFFIXES
+    return (
+        any(
+            part.casefold() in _SENSITIVE_PARTS or part.casefold().startswith(".env.")
+            for part in path.parts
+        )
+        or path.suffix.casefold() in _SENSITIVE_SUFFIXES
+    )
 
 
 def _validate_spec(spec: dict) -> None:
@@ -130,8 +150,10 @@ def _validate_spec(spec: dict) -> None:
     _relative(source["lock"], "source lock")
     for key, length in (("revision", 40), ("lock_sha256", 64)):
         value = source[key]
-        if not isinstance(value, str) or len(value) != length or any(
-            character not in "0123456789abcdef" for character in value
+        if (
+            not isinstance(value, str)
+            or len(value) != length
+            or any(character not in "0123456789abcdef" for character in value)
         ):
             raise ValueError("Transfer source requires exact Git and lock digests")
     files = spec["files"]
@@ -139,6 +161,7 @@ def _validate_spec(spec: dict) -> None:
         raise ValueError("Transfer spec requires an explicit file allowlist")
     sources: set[str] = set()
     targets: set[str] = set()
+    target_identities: set[str] = set()
     lock_source = (Path(source["repo"]) / source["lock"]).as_posix()
     lock_included = False
     for item in files:
@@ -148,12 +171,16 @@ def _validate_spec(spec: dict) -> None:
             raise ValueError("Unsupported transfer file category")
         src = _relative(item["source"], "allowlist source").as_posix()
         target = _relative(item["target"], "allowlist target").as_posix()
-        if src in sources or target in targets:
+        identity = target.casefold()
+        if Path(target).parts[0].casefold() in _GENERATED_PATHS:
+            raise ValueError("Transfer target uses a reserved generated path")
+        if src in sources or identity in target_identities:
             raise ValueError("Transfer source and target paths must be unique")
         if _sensitive_path(Path(src)) or _sensitive_path(Path(target)):
             raise ValueError("Sensitive/private path is forbidden in transfer archives")
         sources.add(src)
         targets.add(target)
+        target_identities.add(identity)
         lock_included = lock_included or (src == lock_source and item["category"] == "source")
     if not lock_included:
         raise ValueError("The pinned source lock must be explicitly packaged as source")
@@ -169,9 +196,11 @@ def _validate_spec(spec: dict) -> None:
             raise ValueError("Duplicate external data declaration")
         external_ids.add(item["id"])
     credentials = spec["credentials_required"]
-    if not isinstance(credentials, list) or not all(
-        isinstance(item, str) and item for item in credentials
-    ) or len(credentials) != len(set(credentials)):
+    if (
+        not isinstance(credentials, list)
+        or not all(isinstance(item, str) and item for item in credentials)
+        or len(credentials) != len(set(credentials))
+    ):
         raise ValueError("credentials_required must contain unique identifiers only")
     mappings = spec["path_mappings"]
     if not isinstance(mappings, dict) or not all(
@@ -222,7 +251,9 @@ def create_transfer_package(spec_path: Path, source_root: Path, out: Path) -> di
     for item in spec["files"]:
         source = _inside(source_root, item["source"], "allowlist source")
         if _has_symlink(source_root, source) or not source.is_file():
-            raise ValueError(f"Allowlisted source must be a regular non-link file: {item['source']}")
+            raise ValueError(
+                f"Allowlisted source must be a regular non-link file: {item['source']}"
+            )
         before = source.stat()
         raw = source.read_bytes()
         after = source.stat()
@@ -412,10 +443,6 @@ def restore_transfer_package(archive_path: Path, destination: Path) -> dict:
                 stream.write(raw)
                 stream.flush()
                 os.fsync(stream.fileno())
-        for row in manifest["files"]:
-            restored = _inside(staging, row["target"], "restored payload")
-            if _has_symlink(staging, restored) or _sha(restored.read_bytes()) != row["sha256"]:
-                raise ValueError(f"Restored payload verification failed: {row['target']}")
         mappings = {
             label: str((destination / _relative(target, "path mapping target")).resolve())
             for label, target in manifest["path_mappings"].items()
@@ -426,7 +453,10 @@ def restore_transfer_package(archive_path: Path, destination: Path) -> dict:
             "mappings": mappings,
             "historical_files_modified": False,
         }
-        (staging / "migration-paths.generated.json").write_bytes(_canonical(generated))
+        with (staging / "migration-paths.generated.json").open("xb") as stream:
+            stream.write(_canonical(generated))
+            stream.flush()
+            os.fsync(stream.fileno())
         needs_configuration = bool(manifest["external_data"] or manifest["credentials_required"])
         status_payload = {
             "schema_version": STATUS_SCHEMA,
@@ -446,7 +476,15 @@ def restore_transfer_package(archive_path: Path, destination: Path) -> dict:
                 "complete_environment_reproduced": False,
             },
         }
-        (staging / "MIGRATION_STATUS.json").write_bytes(_canonical(status_payload))
+        with (staging / "MIGRATION_STATUS.json").open("xb") as stream:
+            stream.write(_canonical(status_payload))
+            stream.flush()
+            os.fsync(stream.fileno())
+        # Verify the final tree after every generated file has been written.
+        for row in manifest["files"]:
+            restored = _inside(staging, row["target"], "restored payload")
+            if _has_symlink(staging, restored) or _sha(restored.read_bytes()) != row["sha256"]:
+                raise ValueError(f"Restored payload verification failed: {row['target']}")
         staging.replace(destination)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)

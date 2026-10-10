@@ -98,6 +98,10 @@ quant-workspace restore-transfer --archive migration.zip --destination D:/restor
 
 打包前后都会复查Git、锁和每个文件的身份/摘要。工具拒绝来源或目标越界、重复目标、任一层符号链接、非普通文件、打包期间变化、明显私钥/凭据文件名和常见明文凭据赋值。ZIP恢复拒绝重复成员、额外成员、路径穿越、链接、摘要或大小不符，并且只允许不存在的目标目录；全部payload在临时同级目录核验后才整体改名。
 
+目标路径还必须在Windows与Linux间无歧义：大小写碰撞、设备名称、尾部空格或点均被拒绝。根目录的两个生成文件名及其子路径属于保留路径，外部构造且摘要自洽的ZIP也不能占用。生成文件以独占方式创建，最终目录中的payload会在生成文件写完后再次核对摘要。
+
+凭据扫描包括`.env.*`文件、带供应商前缀或`export`的密钥赋值、Authorization头和包含密码的连接URI。`${...}`及`{{...}}`环境引用可保留；实际值须在目标机单独提供。创建、校验和恢复使用相同规则。
+
 恢复不会改写历史配置，而是另建`migration-paths.generated.json`。`MIGRATION_STATUS.json`分别记录payload完整性、配置状态、缺失外部数据、缺失凭据、runtime重建状态和研究复现状态。凭据只记录标识符，绝不记录值；外部授权数据只记录缺口。即使`integrity_status=verified`，初始`research_reproduction_status`仍为`not_run`，不能把恢复哈希通过解释为研究已经复现。应在新目录按候选profile重建环境，再用`accept-release`或应用自己的固定输入验收实际运行。
 
 敏感内容扫描用于阻止常见误打包，不是通用秘密检测器。allowlist必须由操作者逐项审查；不要把包含私有行情、个人数据或未知二进制配置的目录整体转成文件列表。

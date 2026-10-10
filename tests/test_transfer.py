@@ -57,10 +57,18 @@ def migration_fixture(tmp_path: Path) -> dict:
             "lock_sha256": digest(repo / "requirements.lock"),
         },
         "files": [
-            {"category": "source", "source": "app/requirements.lock", "target": "app/requirements.lock"},
+            {
+                "category": "source",
+                "source": "app/requirements.lock",
+                "target": "app/requirements.lock",
+            },
             {"category": "source", "source": "app/research.py", "target": "app/research.py"},
             {"category": "data", "source": "data/input.json", "target": "data/input.json"},
-            {"category": "config", "source": "config/settings.json", "target": "config/settings.json"},
+            {
+                "category": "config",
+                "source": "config/settings.json",
+                "target": "config/settings.json",
+            },
             {"category": "run", "source": "runs/result.json", "target": "runs/result.json"},
         ],
         "external_data": [{"id": "market-history", "description": "未打包的授权行情"}],
@@ -102,6 +110,129 @@ def test_transfer_restore_hashes_and_synthetic_reproduction(migration_fixture, t
     assert generated["mappings"]["research_config"] == str(
         (destination / "config/settings.json").resolve()
     )
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "MIGRATION_STATUS.json",
+        "migration_status.JSON",
+        "migration-paths.generated.json",
+        "migration-paths.generated.json/child",
+        "MIGRATION_STATUS.json.",
+        "MIGRATION_STATUS.json ",
+        "CON.json",
+    ],
+)
+def test_transfer_reserves_generated_paths_and_rejects_windows_aliases(
+    migration_fixture, tmp_path, target
+):
+    spec = migration_fixture["spec"]
+    spec["files"][-1]["target"] = target
+    spec["path_mappings"]["restored_runs"] = target
+    migration_fixture["spec_path"].write_text(json.dumps(spec), encoding="utf-8")
+    with pytest.raises(ValueError, match="reserved|canonical"):
+        transfer.create_transfer_package(
+            migration_fixture["spec_path"], migration_fixture["root"], tmp_path / "bad.zip"
+        )
+    assert not (tmp_path / "bad.zip").exists()
+
+
+def test_transfer_rejects_case_insensitive_target_collision(migration_fixture, tmp_path):
+    spec = migration_fixture["spec"]
+    spec["files"][-1]["target"] = "DATA/INPUT.JSON"
+    spec["path_mappings"]["restored_runs"] = "DATA/INPUT.JSON"
+    migration_fixture["spec_path"].write_text(json.dumps(spec), encoding="utf-8")
+    with pytest.raises(ValueError, match="unique"):
+        transfer.create_transfer_package(
+            migration_fixture["spec_path"], migration_fixture["root"], tmp_path / "bad.zip"
+        )
+
+
+@pytest.mark.parametrize(
+    "filename,content",
+    [
+        (".env.local", "OPENAI_API_KEY=fixture-only-never-a-live-key\n"),
+        (".ENV.production", "ordinary=fixture\n"),
+        ("settings.txt", "export OPENAI_API_KEY=fixture-only-never-a-live-key\n"),
+        ("provider.json", '{"AWS_SECRET_ACCESS_KEY":"fixture-only"}'),
+        ("headers.txt", "Authorization: Bearer fixture-only\n"),
+        ("settings.yaml", "database: postgres://fixture:fixture-only@localhost/db\n"),
+    ],
+)
+def test_transfer_rejects_prefixed_credentials_and_dotenv_variants(
+    migration_fixture, tmp_path, filename, content
+):
+    source = "config/" + filename
+    (migration_fixture["root"] / source).write_text(content, encoding="utf-8")
+    spec = migration_fixture["spec"]
+    spec["files"].append({"category": "config", "source": source, "target": source})
+    migration_fixture["spec_path"].write_text(json.dumps(spec), encoding="utf-8")
+    with pytest.raises(ValueError, match="ensitive|credential|private"):
+        transfer.create_transfer_package(
+            migration_fixture["spec_path"], migration_fixture["root"], tmp_path / "secret.zip"
+        )
+    assert not (tmp_path / "secret.zip").exists()
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "OPENAI_API_KEY=${OPENAI_API_KEY}\n",
+        'export OPENAI_API_KEY="${OPENAI_API_KEY}"\n',
+        '{"api_key": "{{ API_KEY }}"}',
+    ],
+)
+def test_transfer_allows_environment_placeholders(migration_fixture, tmp_path, content):
+    (migration_fixture["root"] / "config/settings.json").write_text(content, encoding="utf-8")
+    archive = tmp_path / "placeholders.zip"
+    transfer.create_transfer_package(
+        migration_fixture["spec_path"], migration_fixture["root"], archive
+    )
+    transfer.verify_transfer_package(archive)
+
+
+@pytest.mark.parametrize(
+    "target,content",
+    [
+        ("MIGRATION_STATUS.json", b"fixture"),
+        ("config/.env.local", b"fixture"),
+        ("config/provider.txt", b"OPENAI_API_KEY=fixture-only-never-a-live-key\n"),
+    ],
+)
+def test_transfer_rejects_independently_built_unsafe_archive(
+    migration_fixture, tmp_path, target, content
+):
+    archive = tmp_path / "original.zip"
+    transfer.create_transfer_package(
+        migration_fixture["spec_path"], migration_fixture["root"], archive
+    )
+    manifest, payload = transfer._read_archive(archive)
+    original = manifest["files"][-1]["target"]
+    manifest["files"][-1].update(
+        target=target, size=len(content), sha256=hashlib.sha256(content).hexdigest()
+    )
+    manifest["path_mappings"]["restored_runs"] = target
+    spec = dict(migration_fixture["spec"])
+    spec["files"] = [
+        {key: row[key] for key in ("category", "source", "target")} for row in manifest["files"]
+    ]
+    spec["path_mappings"] = manifest["path_mappings"]
+    manifest["spec_sha256"] = hashlib.sha256(transfer._canonical(spec)).hexdigest()
+    manifest["manifest_sha256"] = transfer._manifest_hash(manifest)
+    payload.pop(original)
+    payload[target] = content
+    unsafe = tmp_path / "independently-built.zip"
+    with zipfile.ZipFile(unsafe, "w") as stream:
+        stream.writestr(transfer.MANIFEST_NAME, transfer._canonical(manifest))
+        for name, raw in payload.items():
+            stream.writestr("payload/" + name, raw)
+    with pytest.raises(ValueError, match="reserved|ensitive|credential"):
+        transfer.verify_transfer_package(unsafe)
+    destination = tmp_path / "unsafe-restore"
+    with pytest.raises(ValueError, match="reserved|ensitive|credential"):
+        transfer.restore_transfer_package(unsafe, destination)
+    assert not destination.exists()
 
 
 def test_transfer_rejects_dirty_or_changed_source(migration_fixture, tmp_path, monkeypatch):
@@ -189,4 +320,6 @@ def test_transfer_rejects_private_key_and_requires_explicit_lock(migration_fixtu
     no_lock = tmp_path / "no-lock.json"
     no_lock.write_text(json.dumps(spec), encoding="utf-8")
     with pytest.raises(ValueError, match="lock must be explicitly packaged"):
-        transfer.create_transfer_package(no_lock, migration_fixture["root"], tmp_path / "no-lock.zip")
+        transfer.create_transfer_package(
+            no_lock, migration_fixture["root"], tmp_path / "no-lock.zip"
+        )
