@@ -9,6 +9,12 @@ from pathlib import Path
 import yaml
 
 from quant_workspace.capabilities import load_capabilities, source_inventory
+from quant_workspace.delivery import (
+    activate_candidate,
+    create_candidate,
+    prepare_candidate,
+    run_acceptance,
+)
 from quant_workspace.loader import load_workspace
 from quant_workspace.m7_certification import load_m7_certification, validate_m7_certification
 from quant_workspace.runtime_readiness import (
@@ -23,6 +29,11 @@ from quant_workspace.stack_manifest import (
     load_stack_manifest,
     validate_stack_manifest,
     write_stack_manifest,
+)
+from quant_workspace.transfer import (
+    create_transfer_package,
+    restore_transfer_package,
+    verify_transfer_package,
 )
 
 
@@ -87,6 +98,64 @@ def cmd_runtime(args: argparse.Namespace) -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 2 if payload.get("status") == "blocked" else 0
     except (KeyError, OSError, TypeError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
+        return 2
+
+
+def cmd_delivery(args: argparse.Namespace) -> int:
+    try:
+        if args.command == "release-candidate":
+            payload = create_candidate(
+                Path(args.profile),
+                Path(args.source_root),
+                Path(args.acceptance_suite),
+                Path(args.state_contract),
+                Path(args.out),
+                state_dir=Path(args.state_dir) if args.state_dir else None,
+                created_at=args.created_at or None,
+            )
+        elif args.command == "prepare-release":
+            payload = prepare_candidate(
+                Path(args.candidate),
+                Path(args.source_root),
+                Path(args.destination),
+                execute=args.execute,
+                build_environments=args.build_environments,
+            )
+        elif args.command == "accept-release":
+            payload = run_acceptance(
+                Path(args.candidate), Path(args.prepared_root), Path(args.out), timeout=args.timeout
+            )
+        else:
+            expected = None if args.expected_current == "none" else args.expected_current
+            payload = activate_candidate(
+                Path(args.candidate),
+                Path(args.evidence),
+                Path(args.prepared_root),
+                Path(args.state_dir),
+                expected_current=expected,
+                action="rollback" if args.command == "rollback-release" else "activate",
+            )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 2 if payload.get("status") == "blocked" else 0
+    except (OSError, TypeError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
+        return 2
+
+
+def cmd_transfer(args: argparse.Namespace) -> int:
+    try:
+        if args.command == "transfer-package":
+            payload = create_transfer_package(
+                Path(args.spec), Path(args.source_root), Path(args.out)
+            )
+        elif args.command == "verify-transfer":
+            payload = verify_transfer_package(Path(args.archive))
+        else:
+            payload = restore_transfer_package(Path(args.archive), Path(args.destination))
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    except (OSError, TypeError, ValueError, subprocess.SubprocessError) as exc:
         print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
         return 2
 
@@ -190,6 +259,73 @@ def build_parser() -> argparse.ArgumentParser:
         "--execute", action="store_true", help="Explicitly create and install a new environment"
     )
     install.set_defaults(func=cmd_runtime)
+
+    candidate = sub.add_parser(
+        "release-candidate", help="Pin a clean ready stack, state contract, and acceptance suite"
+    )
+    candidate.add_argument("--profile", required=True)
+    candidate.add_argument("--source-root", required=True)
+    candidate.add_argument("--acceptance-suite", required=True)
+    candidate.add_argument("--state-contract", required=True)
+    candidate.add_argument("--state-dir", default="")
+    candidate.add_argument("--created-at", default="")
+    candidate.add_argument("--out", required=True)
+    candidate.set_defaults(func=cmd_delivery)
+
+    prepare = sub.add_parser(
+        "prepare-release", help="Plan or locally clone a candidate into a fresh directory"
+    )
+    prepare.add_argument("--candidate", required=True)
+    prepare.add_argument("--source-root", required=True)
+    prepare.add_argument("--destination", required=True)
+    prepare.add_argument("--execute", action="store_true")
+    prepare.add_argument("--build-environments", action="store_true")
+    prepare.set_defaults(func=cmd_delivery)
+
+    accept = sub.add_parser(
+        "accept-release", help="Run candidate-bound compatibility and research acceptance"
+    )
+    accept.add_argument("--candidate", required=True)
+    accept.add_argument("--prepared-root", required=True)
+    accept.add_argument("--out", required=True)
+    accept.add_argument("--timeout", type=int, default=900)
+    accept.set_defaults(func=cmd_delivery)
+
+    for name, help_text in (
+        ("activate-release", "CAS-switch the current release pointer after acceptance"),
+        ("rollback-release", "CAS-switch to an accepted older release without changing data"),
+    ):
+        switch = sub.add_parser(name, help=help_text)
+        switch.add_argument("--candidate", required=True)
+        switch.add_argument("--evidence", required=True)
+        switch.add_argument("--prepared-root", required=True)
+        switch.add_argument("--state-dir", required=True)
+        switch.add_argument(
+            "--expected-current", required=True, help="Expected candidate SHA-256, or 'none'"
+        )
+        switch.set_defaults(func=cmd_delivery)
+
+    package = sub.add_parser(
+        "transfer-package", help="Create a hashed migration archive from an explicit allowlist"
+    )
+    package.add_argument("--spec", required=True)
+    package.add_argument("--source-root", required=True)
+    package.add_argument("--out", required=True)
+    package.set_defaults(func=cmd_transfer)
+
+    verify_transfer = sub.add_parser(
+        "verify-transfer",
+        help="Verify migration manifest, entry set, hashes, and secret exclusions",
+    )
+    verify_transfer.add_argument("--archive", required=True)
+    verify_transfer.set_defaults(func=cmd_transfer)
+
+    restore_transfer = sub.add_parser(
+        "restore-transfer", help="Restore a verified migration archive into a new directory"
+    )
+    restore_transfer.add_argument("--archive", required=True)
+    restore_transfer.add_argument("--destination", required=True)
+    restore_transfer.set_defaults(func=cmd_transfer)
 
     path = sub.add_parser("path", help="Print one resolved path")
     path.add_argument("project")
