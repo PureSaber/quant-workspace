@@ -242,10 +242,10 @@
     },
     {
       "id": "quant-workspace", "layer": "orchestration", "assets": ["平台全部仓库"],
-      "capabilities": ["路径配置", "能力清单", "源码盘点", "不可变发布清单", "认证门禁", "研究环境profile", "独立解释器与固定依赖只读检查、显式预览及新环境重建"],
-      "entrypoints": ["quant-workspace show/path/capabilities/stack-manifest/verify-stack", "quant-workspace runtime-profile/doctor/bootstrap-env"], "contracts": ["quant.capabilities/v1", "quant.source-inventory/v1", "StackManifest 1.0.0", "quant.runtime-profile/v1", "quant.runtime-readiness/v1"],
+      "capabilities": ["路径配置", "能力清单", "源码盘点", "不可变发布清单", "认证门禁", "研究环境profile", "独立解释器与固定依赖只读检查、显式预览及新环境重建", "候选发布、实际验收、CAS切换及allowlist迁移恢复"],
+      "entrypoints": ["quant-workspace show/path/capabilities/stack-manifest/verify-stack", "quant-workspace runtime-profile/doctor/bootstrap-env", "quant-workspace release-candidate/prepare-release/accept-release/activate-release/rollback-release", "quant-workspace transfer-package/verify-transfer/restore-transfer"], "contracts": ["quant.capabilities/v1", "quant.source-inventory/v1", "StackManifest 1.0.0", "quant.runtime-profile/v1", "quant.runtime-readiness/v1", "quant.release-candidate/v1", "quant.release-acceptance/v1", "quant.transfer-manifest/v1"],
       "data_status": "区分23仓维护范围和14仓历史发行范围",
-      "gaps": ["源码盘点和依赖环境检查不替代应用运行及跨仓业务验收"], "evidence": ["README.md", "configs/v2.release.workspace.yaml", "src/quant_workspace/runtime_readiness.py", "docs/RUNTIME_READINESS.md"]
+      "gaps": ["源码盘点和依赖环境检查不替代应用运行及跨仓业务验收"], "evidence": ["README.md", "configs/v2.release.workspace.yaml", "src/quant_workspace/runtime_readiness.py", "docs/RUNTIME_READINESS.md", "src/quant_workspace/delivery.py", "src/quant_workspace/transfer.py", "docs/DELIVERY_AND_TRANSFER.md"]
     },
     {
       "id": "quant-infra-workspace", "layer": "governance", "assets": ["平台仓库"],
