@@ -314,7 +314,8 @@ def build_parser() -> argparse.ArgumentParser:
     package.set_defaults(func=cmd_transfer)
 
     verify_transfer = sub.add_parser(
-        "verify-transfer", help="Verify migration manifest, entry set, hashes, and secret exclusions"
+        "verify-transfer",
+        help="Verify migration manifest, entry set, hashes, and secret exclusions",
     )
     verify_transfer.add_argument("--archive", required=True)
     verify_transfer.set_defaults(func=cmd_transfer)

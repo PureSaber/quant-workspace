@@ -40,7 +40,11 @@ def write_distribution(
 def create_environment(repo: Path) -> None:
     environment = repo / ".venv"
     subprocess.run([sys.executable, "-I", "-m", "venv", str(environment)], check=True)
-    site = environment / ("Lib/site-packages" if sys.platform == "win32" else f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")
+    site = environment / (
+        "Lib/site-packages"
+        if sys.platform == "win32"
+        else f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
+    )
     for metadata in site.glob("*.dist-info"):
         if not metadata.name.casefold().startswith("pip-"):
             shutil.rmtree(metadata)
@@ -198,7 +202,9 @@ def test_state_incompatible_switch_is_blocked_without_changing_current(release_f
     evidence_path = tmp_path / "evidence-v1.json"
     delivery.run_acceptance(first_path, prepared, evidence_path)
     state_dir = tmp_path / "state"
-    delivery.activate_candidate(first_path, evidence_path, prepared, state_dir, expected_current=None)
+    delivery.activate_candidate(
+        first_path, evidence_path, prepared, state_dir, expected_current=None
+    )
 
     contract_v2 = tmp_path / "state-v2.json"
     contract_v2.write_text(
@@ -276,10 +282,14 @@ def test_acceptance_detects_missing_dependency_and_output_tampering(release_fixt
     prepared = tmp_path / "prepared"
     delivery.prepare_candidate(candidate_path, release_fixture["root"], prepared, execute=True)
     create_environment(prepared / "sample")
-    site = prepared / "sample/.venv" / (
-        "Lib/site-packages"
-        if sys.platform == "win32"
-        else f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
+    site = (
+        prepared
+        / "sample/.venv"
+        / (
+            "Lib/site-packages"
+            if sys.platform == "win32"
+            else f"lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages"
+        )
     )
     shutil.rmtree(next(site.glob("packaging-*.dist-info")))
     with pytest.raises(ValueError, match="not ready"):

@@ -48,9 +48,9 @@ def _sha(raw: bytes) -> str:
 
 
 def _canonical(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode(
-        "utf-8"
-    )
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
 
 
 def _object_hash(value: dict, field: str) -> str:
@@ -90,7 +90,9 @@ def _write_new(path: Path, value: dict) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("xb") as stream:
-        stream.write(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
+        stream.write(
+            json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")
+        )
         stream.write(b"\n")
         stream.flush()
         os.fsync(stream.fileno())
@@ -152,8 +154,10 @@ def _validate_suite(value: dict, revisions: dict[str, str]) -> None:
             raise ValueError("Acceptance case identity is invalid")
         identities.add(case["id"])
         _relative(case["cwd"], label="acceptance cwd")
-        if not isinstance(case["args"], list) or not case["args"] or not all(
-            isinstance(arg, str) and arg and "\x00" not in arg for arg in case["args"]
+        if (
+            not isinstance(case["args"], list)
+            or not case["args"]
+            or not all(isinstance(arg, str) and arg and "\x00" not in arg for arg in case["args"])
         ):
             raise ValueError("Acceptance case args must be a non-empty argument array")
         if not isinstance(case["outputs"], list) or not case["outputs"]:
@@ -166,13 +170,17 @@ def _validate_suite(value: dict, revisions: dict[str, str]) -> None:
             if output["path"] in output_paths or not isinstance(output["sha256"], str):
                 raise ValueError("Acceptance outputs must be unique and hashed")
             output_paths.add(output["path"])
-            if len(output["sha256"]) != 64 or any(c not in "0123456789abcdef" for c in output["sha256"]):
+            if len(output["sha256"]) != 64 or any(
+                c not in "0123456789abcdef" for c in output["sha256"]
+            ):
                 raise ValueError("Acceptance output requires a SHA-256 digest")
         if case["kind"] == "state_compatibility":
             for key in state:
                 digest = case[key]
-                if not isinstance(digest, str) or len(digest) != 64 or any(
-                    c not in "0123456789abcdef" for c in digest
+                if (
+                    not isinstance(digest, str)
+                    or len(digest) != 64
+                    or any(c not in "0123456789abcdef" for c in digest)
                 ):
                     raise ValueError("State compatibility case requires exact contract digests")
 
@@ -453,7 +461,8 @@ def prepare_candidate(
         (metadata / "acceptance-suite.json").write_bytes(_canonical(candidate["acceptance_suite"]))
         (metadata / "state-contract.json").write_bytes(_canonical(candidate["state_contract"]))
         (metadata / "candidate.json").write_bytes(
-            json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+            json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")
+            + b"\n"
         )
         (metadata / "candidate-file.sha256").write_text(candidate_file_sha + "\n", encoding="ascii")
         _candidate_sources_match(candidate, staging)
@@ -595,7 +604,9 @@ def verify_acceptance(candidate: dict, evidence_path: Path, prepared_root: Path)
         raise ValueError("Acceptance evidence does not accept this candidate")
     expected_cases = {case["id"]: case for case in candidate["acceptance_suite"]["cases"]}
     actual_cases = evidence.get("cases")
-    if not isinstance(actual_cases, list) or {row.get("id") for row in actual_cases} != set(expected_cases):
+    if not isinstance(actual_cases, list) or {row.get("id") for row in actual_cases} != set(
+        expected_cases
+    ):
         raise ValueError("Acceptance evidence case set mismatch")
     for result in actual_cases:
         case = expected_cases[result["id"]]
@@ -608,7 +619,11 @@ def verify_acceptance(candidate: dict, evidence_path: Path, prepared_root: Path)
             path = _inside(Path(prepared_root), expected["path"], label="acceptance output")
             actual = _sha(path.read_bytes()) if path.is_file() and not path.is_symlink() else None
             row = recorded[expected["path"]]
-            if actual != expected["sha256"] or row.get("sha256") != actual or row.get("matches") is not True:
+            if (
+                actual != expected["sha256"]
+                or row.get("sha256") != actual
+                or row.get("matches") is not True
+            ):
                 raise ValueError(f"Acceptance output mismatch: {expected['path']}")
     readiness = _verify_prepared(candidate, Path(prepared_root).resolve())
     if _sha(_canonical(readiness)) != evidence["runtime_after_sha256"]:
@@ -673,7 +688,9 @@ def activate_candidate(
                     == "passed"
                 }
                 if (old_state, new_state) not in transitions:
-                    raise ValueError("Application state compatibility was not executed for this transition")
+                    raise ValueError(
+                        "Application state compatibility was not executed for this transition"
+                    )
         candidate_store = state_dir / "candidates" / f"{candidate['candidate_sha256']}.json"
         if candidate_store.exists():
             stored, _ = load_candidate(candidate_store)
