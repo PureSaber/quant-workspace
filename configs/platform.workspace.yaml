@@ -1,4 +1,4 @@
-# Current 23-repository development/maintenance scope. Not an M8 release manifest.
+# Current 24-repository development/maintenance scope. Not an M8 release manifest.
 root: ../..
 projects:
   a-share-multifactor: {repo: a-share-multifactor, outputs: outputs}
@@ -12,6 +12,7 @@ projects:
   quant-hk-equity: {repo: quant-hk-equity}
   quant-infra-workspace: {repo: quant-infra-workspace}
   quant-lab: {repo: quant-lab, state: state}
+  quant-options: {repo: quant-options}
   quant-paper-sim: {repo: quant-paper-sim, state: state}
   quant-pipeline: {repo: quant-pipeline, state: state}
   quant-portfolio: {repo: quant-portfolio, state: state}
