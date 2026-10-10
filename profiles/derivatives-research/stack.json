@@ -10,6 +10,6 @@
     "quant-data-kit": "3b1684dfb1ecddd0c7df95f1fbac9b21119e9f55",
     "quant-execution": "f6c579363f0500c15753ab7fb8c3a3702061870f"
   },
-  "lock_sha256": "b6f2dc327e821575d17c51990ab043bb4396fe23efe49608518c25a87dff42c3",
+  "lock_sha256": "3d73f64abe38f3b6dd8802f15b8f574741740d1a1f20e8fa8d3bf51a6d44e903",
   "boundary": "Research runtime only; existing M8 and certified fixture environments stay frozen"
 }

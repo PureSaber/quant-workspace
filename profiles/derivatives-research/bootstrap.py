@@ -31,7 +31,14 @@ def main():
     workspace.mkdir()
     for name, ref in stack["applications"].items():
         repo = workspace / name
-        call("git", "clone", f"https://github.com/PureSaber/{name}.git", repo)
+        call(
+            "git",
+            "clone",
+            "-c",
+            "core.autocrlf=false",
+            f"https://github.com/PureSaber/{name}.git",
+            repo,
+        )
         call("git", "-C", repo, "checkout", "--detach", ref)
         head = subprocess.check_output(
             ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True
