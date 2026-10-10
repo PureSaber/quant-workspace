@@ -4,7 +4,7 @@
   "applications": {
     "quant-options": "bda1d7702068176c0167b0246cdefe04969e4cc8",
     "quant-futures-spread": "302fc65c03ff00755672c21c6134f3e616e4608e",
-    "quant-studio": "180e9140f346a51b1175665b18b54dd82b838cb3"
+    "quant-studio": "a11bebd1c858656333aa739ee0d91671c40ef6c1"
   },
   "shared_dependencies": {
     "quant-data-kit": "3b1684dfb1ecddd0c7df95f1fbac9b21119e9f55",
