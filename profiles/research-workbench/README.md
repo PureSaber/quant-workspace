@@ -1,6 +1,6 @@
 # 量化研究工作台
 
-本目录是固定提交的研究集成配置及其历史运行方式。当前日常网页入口与操作说明见 [Quant Studio 日常指南](../../../quant-studio/DAILY_WORKFLOW.md)。网页部署使用各应用独立环境；不要用本目录的 bootstrap 覆盖已有冻结账户环境。历史 VALIDATION 文件保留原日期与结论。
+本目录是固定提交的研究集成配置及其历史运行方式。当前日常网页入口与操作说明见 [Quant Studio 日常指南](https://github.com/PureSaber/quant-studio/blob/main/DAILY_WORKFLOW.md)。网页部署使用各应用独立环境；不要用本目录的 bootstrap 覆盖已有冻结账户环境。历史 VALIDATION 文件保留原日期与结论。
 
 一份YAML配方生成全部候选，预登记后回放，再产出账本、因子证据、成本压力、失败诊断和可筛选报告。支持A股固定观察池与ETF趋势轮动；期货价差和crypto基差使用隔离的冻结软件样例。
 
