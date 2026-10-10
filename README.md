@@ -1,5 +1,7 @@
 # quant-workspace
 
+日常网页研究入口现为相邻仓库 [Quant Studio](../quant-studio/README.md)，操作见 [日常指南](../quant-studio/DAILY_WORKFLOW.md)。它连接各应用的独立环境，提供数据集、不可变方案、实验笔记与服务监护。下面的固定栈集成配置及历史验收继续独立保留，不等同于当前网页部署；当前阶段以工程可用性验收为主。
+
 量化投研入口：[研究工作台](profiles/research-workbench/README.md)提供策略配方、因子筛选、历史数据预检、稳健性诊断、研究助手及四类策略模板；[验收记录](profiles/research-workbench/VALIDATION.md)列出测试与适用范围。
 
 Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7Certification 1.0.0` verifier for the PureSaber quant multi-repo stack. It eliminates hard-coded sibling paths and freezes the exact Git, package, dependency, schema, performance, and market-data evidence consumed by releases.
