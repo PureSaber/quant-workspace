@@ -51,7 +51,7 @@ def test_development_and_release_scopes_match_their_own_configs():
     release = load_workspace(root / "configs/v2.release.workspace.yaml")
     assert {p["id"] for p in catalog["projects"]} == set(development.projects)
     assert set(catalog["release_scopes"]["m8_runtime"]["projects"]) == set(release.projects)
-    assert len(development.projects) == 23
+    assert len(development.projects) == 24
     assert len(release.projects) == 14
     assert "quant-studio" not in release.projects
     assert "quant-us-equity" in development.projects
@@ -104,7 +104,7 @@ def test_invalid_catalog_cannot_drive_inventory(change):
 def test_capabilities_cli_is_available_without_a_workspace_config(capsys):
     assert main(["capabilities"]) == 0
     result = json.loads(capsys.readouterr().out)
-    assert len(result["projects"]) == 23
+    assert len(result["projects"]) == 24
 
 
 def test_inventory_cli_exits_nonzero_when_sources_are_missing(tmp_path, capsys):

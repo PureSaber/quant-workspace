@@ -8,7 +8,7 @@ Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7C
 
 ## 当前平台范围
 
-日常开发和维护使用[23仓配置](configs/platform.workspace.yaml)。历史桌面配置保留旧项目；M8不可变发行仍使用原来的14仓配置。两者不能互换，当前HEAD也不会因仓库属于发行清单而自动获得认证。
+日常开发和维护使用[24仓配置](configs/platform.workspace.yaml)。历史桌面配置保留旧项目；M8不可变发行仍使用原来的14仓配置。两者不能互换，当前HEAD也不会因仓库属于发行清单而自动获得认证。
 
 ```sh
 quant-workspace capabilities
@@ -116,3 +116,5 @@ by moving a historical tag or editing canonical JSON.
 - [quant-pipeline](../quant-pipeline) — post-run orchestration
 - [quant-lab](../quant-lab) — experiment index
 - [quant-research-notes](../quant-research-notes) — architecture docs
+
+衍生品研究安装与数据边界见 [独立研究环境](profiles/derivatives-research/README.md)。

@@ -1,0 +1,15 @@
+{
+  "schema_version": "quant.derivatives-stack/v1",
+  "python": "3.12",
+  "applications": {
+    "quant-options": "bda1d7702068176c0167b0246cdefe04969e4cc8",
+    "quant-futures-spread": "302fc65c03ff00755672c21c6134f3e616e4608e",
+    "quant-studio": "355e3bcac365e91dc18a4f8872bbe293bd027482"
+  },
+  "shared_dependencies": {
+    "quant-data-kit": "3b1684dfb1ecddd0c7df95f1fbac9b21119e9f55",
+    "quant-execution": "f6c579363f0500c15753ab7fb8c3a3702061870f"
+  },
+  "lock_sha256": "3d73f64abe38f3b6dd8802f15b8f574741740d1a1f20e8fa8d3bf51a6d44e903",
+  "boundary": "Research runtime only; existing M8 and certified fixture environments stay frozen"
+}
