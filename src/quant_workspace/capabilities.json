@@ -46,12 +46,14 @@
         "L2标准化及认证工具",
         "版本化分红生命周期与PIT汇率契约；源单位/精度、经济与可得时间、账户税费政策及精确现金守恒",
         "独立发布时间/分红v2：材料、时区和显示规则证据、开闭边界、纳秒比较与修订取得下界；v1规范字节及源阶段身份绑定迁移",
-        "衍生品不可变数据包、CSV 导入及受限 Dataway/Databento 采集"
+        "衍生品不可变数据包、CSV 导入及受限 Dataway/Databento 采集",
+        "公司并购事件SQLite追加修订库、历史可见读取和行级哈希（离线合成验收通过）"
       ],
       "entrypoints": [
         "qdk-validate",
         "qdk-catalog",
-        "python -m quant_data_kit"
+        "python -m quant_data_kit",
+        "quant_data_kit.us_research.corporate_events.import_events/asof_events"
       ],
       "contracts": [
         "行情快照与SHA-256清单",
@@ -60,7 +62,8 @@
         "puresaber.pit-fx/1",
         "puresaber.evidence-timing/2",
         "puresaber.dividend-lifecycle/2",
-        "puresaber.dividend-lifecycle-v1-to-v2/1"
+        "puresaber.dividend-lifecycle-v1-to-v2/1",
+        "qdk.corporate-events/1"
       ],
       "data_status": "部分公开日线样本可用；完整市场数据GA仍受阻",
       "gaps": [
@@ -68,7 +71,8 @@
         "Crypto八流连续30日",
         "国内授权L2",
         "分红v1契约已接入QExec和HK显式离线场景；时间v2消费者仍待实现，可信来源材料、完整历史与账户实际到账未认证。共享UTC及既有消费者纳秒精度已另行修复，不等同于时间v2完整消费",
-        "新增衍生品工程验收不等于完整真实历史/交易所保证金/真实成交认证"
+        "新增衍生品工程验收不等于完整真实历史/交易所保证金/真实成交认证",
+        "并购事件全量真实历史、独立发布时间证据及新模块运行验收"
       ],
       "evidence": [
         "README.md",
@@ -81,7 +85,9 @@
         "src/quant_data_kit/financial/dividend_migration_v2.py",
         "tests/test_publication_time_v2.py",
         "tests/test_dividend_lifecycle_v2_migration.py",
-        "docs/DERIVATIVE_RESEARCH.md"
+        "docs/DERIVATIVE_RESEARCH.md",
+        "src/quant_data_kit/us_research/corporate_events.py",
+        "docs/CORPORATE_EVENTS.md"
       ]
     },
     {
@@ -133,17 +139,21 @@
         "分红权益、发行人换汇和实际付款三阶段及幂等/回滚",
         "整户精确聚合、证据化政策和全账户PIT估值",
         "封存快照导出、顺序业务事实回放与失败目录拒绝",
-        "期货逐日结算、期权到期/行权、显式逐合约保证金及次期账户回放"
+        "期货逐日结算、期权到期/行权、显式逐合约保证金及次期账户回放",
+        "现金股票/ETF库存偏移报价、撤单延迟、L2/BBO模拟与共享账本（离线合成验收通过）"
       ],
       "entrypoints": [
-        "Python API"
+        "Python API",
+        "python -m quant_execution.market_making_cli"
       ],
       "contracts": [
         "OrderIntent",
         "FixedPoint账本",
         "standard/v2执行事实",
         "puresaber.execution.dividend-record/1",
-        "puresaber.execution.replay-artifact-manifest/1.1.0"
+        "puresaber.execution.replay-artifact-manifest/1.1.0",
+        "quant.market-making-input/1",
+        "quant.market-making-study/1"
       ],
       "data_status": "离线模拟执行；规则有效性取决于输入证据",
       "gaps": [
@@ -151,7 +161,8 @@
         "HK生命周期离线场景已接入；真实权益/政策/到账及完整市场准入未认证",
         "发布时间v2消费者尚未实现；既有共享时间转换和JSON解析纳秒精度已独立修复",
         "无实盘券商接入承诺",
-        "新增衍生品工程验收不等于完整真实历史/交易所保证金/真实成交认证"
+        "新增衍生品工程验收不等于完整真实历史/交易所保证金/真实成交认证",
+        "做市真实队列/隐藏流动性/延迟校准、借券和做市账户；新库存报价尚未运行验收"
       ],
       "evidence": [
         "README.md",
@@ -160,7 +171,9 @@
         "src/quant_execution/artifacts.py",
         "tests/test_dividend_lifecycle.py",
         "tests/test_dividend_artifacts.py",
-        "docs/DERIVATIVE_RESEARCH.md"
+        "docs/DERIVATIVE_RESEARCH.md",
+        "src/quant_execution/market_making.py",
+        "src/quant_execution/market_making_cli.py"
       ]
     },
     {
@@ -268,28 +281,33 @@
         "现金分红账本",
         "v2适配",
         "连续样本外与同成本基准统一导出",
-        "数据包和静态研究配置的原生只读预检及Studio接入"
+        "数据包和静态研究配置的原生只读预检及Studio接入",
+        "现金/固定换股并购的概率口径、完成/失败情景和借券约束对冲提案（离线合成验收通过）"
       ],
       "entrypoints": [
-        "us-research demo/preflight/run/verify/fetch-sec/fetch-yahoo"
+        "us-research demo/preflight/run/verify/fetch-sec/fetch-yahoo",
+        "us-research import-mergers/mergers"
       ],
       "contracts": [
         "研究bundle",
         "独立study.json",
         "standard/v2探索性导出",
-        "quant-us-equity.preflight/v1"
+        "quant-us-equity.preflight/v1",
+        "quant.merger-scenarios/1"
       ],
       "data_status": "私有应用；SEC样本已获取，真实价格链受源限流影响",
       "gaps": [
         "可用且口径明确的价格源",
         "历史成员与退市",
-        "分红支付日证据"
+        "分红支付日证据",
+        "并购概率模型训练校准、完整事件历史及实际成交/终止处置/交收；新模块未运行验收"
       ],
       "evidence": [
         "README.md",
         "src/quant_us_equity/study.py",
         "src/quant_us_equity/preflight.py",
-        ".github/workflows/studio-integration.yml"
+        ".github/workflows/studio-integration.yml",
+        "src/quant_us_equity/mergers.py"
       ]
     },
     {
@@ -874,13 +892,15 @@
         "认证门禁",
         "研究环境profile",
         "独立解释器与固定依赖只读检查、显式预览及新环境重建",
-        "候选发布、实际验收、CAS切换及allowlist迁移恢复"
+        "候选发布、实际验收、CAS切换及allowlist迁移恢复",
+        "可选本地源码机构研究入口与合成输入生成器（未运行验收）"
       ],
       "entrypoints": [
         "quant-workspace show/path/capabilities/stack-manifest/verify-stack",
         "quant-workspace runtime-profile/doctor/bootstrap-env",
         "quant-workspace release-candidate/prepare-release/accept-release/activate-release/rollback-release",
-        "quant-workspace transfer-package/verify-transfer/restore-transfer"
+        "quant-workspace transfer-package/verify-transfer/restore-transfer",
+        "python profiles/institutional-research/run.py"
       ],
       "contracts": [
         "quant.capabilities/v1",
@@ -894,7 +914,8 @@
       ],
       "data_status": "区分24仓维护范围和14仓历史发行范围",
       "gaps": [
-        "源码盘点和依赖环境检查不替代应用运行及跨仓业务验收"
+        "源码盘点和依赖环境检查不替代应用运行及跨仓业务验收",
+        "institutional-research尚未运行验证、发布或固定新依赖组合"
       ],
       "evidence": [
         "README.md",
@@ -903,7 +924,10 @@
         "docs/RUNTIME_READINESS.md",
         "src/quant_workspace/delivery.py",
         "src/quant_workspace/transfer.py",
-        "docs/DELIVERY_AND_TRANSFER.md"
+        "docs/DELIVERY_AND_TRANSFER.md",
+        "profiles/institutional-research/README.md",
+        "profiles/institutional-research/run.py",
+        "profiles/institutional-research/examples.py"
       ]
     },
     {
@@ -969,26 +993,31 @@
       "capabilities": [
         "BSM/Black-76/CRR 定价、IV 与 Greeks",
         "期权链/原始 IV 切片、多腿情景",
-        "共享精确账户的历史回放"
+        "共享精确账户的历史回放",
+        "多市场双边期权链质量、分组Greeks、汇率情景和后续BBO对冲成本研究（离线合成验收通过）"
       ],
       "entrypoints": [
-        "python -m quant_options.cli preflight/run/verify"
+        "python -m quant_options.cli preflight/run/verify",
+        "quant-options portfolio"
       ],
       "contracts": [
         "qdk.derivatives/v1",
-        "quant.derivative-artifacts/v1"
+        "quant.derivative-artifacts/v1",
+        "quant.options-portfolio/1"
       ],
       "data_status": "合成工程验收；真实研究需合约规则、同步标的价格及授权历史",
       "gaps": [
         "完整授权真实链数据",
         "SPAN/组合保证金与外汇",
-        "自动美式最优行权及奇异期权"
+        "自动美式最优行权及奇异期权",
+        "完整真实链与动态对冲账户/组合保证金/代理基差模型；新多市场模块未运行验收"
       ],
       "evidence": [
         "README.md",
         "src/quant_options/pricing.py",
         "src/quant_options/study.py",
-        "requirements.lock"
+        "requirements.lock",
+        "src/quant_options/portfolio.py"
       ]
     }
   ],
