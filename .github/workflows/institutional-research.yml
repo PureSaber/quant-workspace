@@ -1,0 +1,47 @@
+name: Institutional research acceptance
+on:
+  pull_request:
+    paths: ['profiles/institutional-research/**', '.github/workflows/institutional-research.yml']
+  push:
+    paths: ['profiles/institutional-research/**', '.github/workflows/institutional-research.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-repository-access:
+    runs-on: ubuntu-24.04
+    outputs:
+      configured: ${{ steps.access.outputs.configured }}
+    steps:
+      - id: access
+        env:
+          QUANT_RESEARCH_READ_TOKEN: ${{ secrets.QUANT_RESEARCH_READ_TOKEN }}
+        run: |
+          if [ -n "$QUANT_RESEARCH_READ_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Private-repository acceptance is BLOCKED: configure QUANT_RESEARCH_READ_TOKEN with read access to the pinned private repositories. No cross-repository CI acceptance was executed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+  acceptance:
+    needs: private-repository-access
+    if: needs.private-repository-access.outputs.configured == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: quant-workspace
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Install pinned sources and verify three research workflows
+        env:
+          PYTHONUTF8: '1'
+          QUANT_RESEARCH_READ_TOKEN: ${{ secrets.QUANT_RESEARCH_READ_TOKEN }}
+        run: python quant-workspace/profiles/institutional-research/ci.py

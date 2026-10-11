@@ -1,0 +1,83 @@
+{
+  "repositories": {
+    "quant-data-kit": "f49f1cc306a4a27a2734e21c89ec5b68f7d7384d",
+    "quant-execution": "44c85cc7865a47d72b4bae2ed4be16ee6238b345",
+    "quant-options": "ab3a49af3ff6128b5ff0fe5a1be467fce9ba51b9",
+    "quant-us-equity": "ee23eb2b69580f3d9de586496fb03cf63440f0e1",
+    "quant-studio": "04ca196b0ffba3ab765158e68af8fed88d634b4b",
+    "quant-swaps": "08a85d7c9558293762bf27887541e17eb324511f",
+    "quant-futures-spread": "320e31fd801d5c744fbc56e2e9c4a984f31bc61b",
+    "quant-workspace": "e96c96649029434956d9fee9db2b5f918b07e30f",
+    "quant-lab": "6cf6126887ab084dd15507a287f40db571e65b95",
+    "quant-factors": "a26c758f2e6d9bc4e6169d97df8cbc97cdaa4f9d"
+  },
+  "packages": [
+    "quant-data-kit",
+    "quant-execution",
+    "quant-lab",
+    "quant-factors",
+    "quant-workspace",
+    "quant-us-equity",
+    "quant-options",
+    "quant-swaps",
+    "quant-futures-spread/international",
+    "quant-futures-spread/macro",
+    "quant-studio"
+  ],
+  "source_archives": {
+    "quant-data-kit": {
+      "file": "quant-data-kit-f49f1cc306a4a27a2734e21c89ec5b68f7d7384d.zip",
+      "sha256": "2de98abbc0a8a19f5fe6bce8897a04944f57c80be9f68508394bbce0c1ba92a5"
+    },
+    "quant-execution": {
+      "file": "quant-execution-44c85cc7865a47d72b4bae2ed4be16ee6238b345.zip",
+      "sha256": "c8fd83d3219a5b8ec3f98f57928a39712a4206916b6c51e2b4e1fb0112fb8638"
+    },
+    "quant-options": {
+      "file": "quant-options-ab3a49af3ff6128b5ff0fe5a1be467fce9ba51b9.zip",
+      "sha256": "8aa02fdc71d3302928fae8b212b7960512e8fae77378d32e5a72e26f0f7172d1"
+    },
+    "quant-us-equity": {
+      "file": "quant-us-equity-ee23eb2b69580f3d9de586496fb03cf63440f0e1.zip",
+      "sha256": "6cc087090d0913135ab2611666d05aff7984eb0d039002f088537fdf30e0f01b"
+    },
+    "quant-studio": {
+      "file": "quant-studio-04ca196b0ffba3ab765158e68af8fed88d634b4b.zip",
+      "sha256": "216193b61ce5e07a16a6c3a64d545007ee06976ee95136ea7247084702733586"
+    },
+    "quant-swaps": {
+      "file": "quant-swaps-08a85d7c9558293762bf27887541e17eb324511f.zip",
+      "sha256": "624a6c7ae323ed27f27c24473d22d2502951365ad39c2d1e794e608e225d06d0"
+    },
+    "quant-futures-spread": {
+      "file": "quant-futures-spread-320e31fd801d5c744fbc56e2e9c4a984f31bc61b.zip",
+      "sha256": "954058672dbca1101838a073422518459f89fe2ff739018ec4b742c7963aa89c"
+    },
+    "quant-workspace": {
+      "file": "quant-workspace-e96c96649029434956d9fee9db2b5f918b07e30f.zip",
+      "sha256": "76c5f3c0371e087e07f5e0143e53d485d88272fe68cba8ca9f1fa91280d78d8e"
+    },
+    "quant-lab": {
+      "file": "quant-lab-6cf6126887ab084dd15507a287f40db571e65b95.zip",
+      "sha256": "77798908f1a51163741d6844bca381c33a6b393ee19c48c470de424665ae9859"
+    },
+    "quant-factors": {
+      "file": "quant-factors-a26c758f2e6d9bc4e6169d97df8cbc97cdaa4f9d.zip",
+      "sha256": "71415b29158a9bc3bdabbfde0c3759e228c9549e340b564a9aba1bb1ff29cf52"
+    }
+  },
+  "schema_version": "quant.multiasset-stack/v1",
+  "python": "3.12",
+  "lock": {
+    "sha256": "8809db26cb93437020d2f931df0ed6bf023b3837392968007efc193cfef3fb37"
+  },
+  "runtime_keys": [
+    "quant-options",
+    "quant-futures-global",
+    "quant-macro",
+    "quant-macro-futures",
+    "quant-institutional",
+    "quant-options-market",
+    "quant-swaps-market"
+  ]
+}
