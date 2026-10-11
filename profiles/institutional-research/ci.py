@@ -1,6 +1,8 @@
 """Fetch exact public sources and validate the packaged research environment."""
 
+import base64
 import json
+import os
 import re
 import subprocess
 import sys
@@ -11,6 +13,15 @@ def main():
     here = Path(__file__).resolve().parent
     root = here.parents[2]
     sources = json.loads((here / "sources.lock.json").read_text("utf-8"))
+    environment = os.environ.copy()
+    token = environment.get("QUANT_RESEARCH_READ_TOKEN")
+    if token:
+        header = base64.b64encode(("x-access-token:" + token).encode()).decode()
+        environment.update(
+            GIT_CONFIG_COUNT="1",
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader",
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic " + header,
+        )
     for name, commit in sources.items():
         if not re.fullmatch(r"quant-[a-z-]+", name) or not re.fullmatch(r"[0-9a-f]{40}", commit):
             raise ValueError("invalid pinned source identity")
@@ -30,6 +41,7 @@ def main():
                 commit,
             ],
             check=True,
+            env=environment,
         )
         subprocess.run(["git", "-C", str(path), "checkout", "--detach", "FETCH_HEAD"], check=True)
     environment = root / ".institutional-runtime"

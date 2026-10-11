@@ -8,7 +8,24 @@ on:
 permissions:
   contents: read
 jobs:
+  private-repository-access:
+    runs-on: ubuntu-24.04
+    outputs:
+      configured: ${{ steps.access.outputs.configured }}
+    steps:
+      - id: access
+        env:
+          QUANT_RESEARCH_READ_TOKEN: ${{ secrets.QUANT_RESEARCH_READ_TOKEN }}
+        run: |
+          if [ -n "$QUANT_RESEARCH_READ_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Private-repository acceptance is BLOCKED: configure QUANT_RESEARCH_READ_TOKEN with read access to the pinned private repositories. No cross-repository CI acceptance was executed." >> "$GITHUB_STEP_SUMMARY"
+          fi
   acceptance:
+    needs: private-repository-access
+    if: needs.private-repository-access.outputs.configured == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -26,4 +43,5 @@ jobs:
       - name: Install pinned sources and verify three research workflows
         env:
           PYTHONUTF8: '1'
+          QUANT_RESEARCH_READ_TOKEN: ${{ secrets.QUANT_RESEARCH_READ_TOKEN }}
         run: python quant-workspace/profiles/institutional-research/ci.py

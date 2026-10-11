@@ -103,3 +103,10 @@ timeline 的 borrow 记录包含 available_at、expires_at、units、source；se
 | 完整期权历史 | QDK 数据包／CSV 接口、质量门禁、组合回放 | 数据许可／密钥、所需市场与历史深度、实际保证金与费用 |
 
 没有真实输入时仍可运行合成验收，但不能标为真实市场验收或实盘可交易。
+
+## 私有仓库持续集成授权
+
+本机已用当前仓库访问权限完整执行安装包验收。GitHub 的跨仓库验收涉及私有的
+quant-us-equity 等仓库；工作区当前没有跨仓库读取 secret。
+要启用远端这项验收，由仓库所有者配置 `QUANT_RESEARCH_READ_TOKEN`，只授予锁文件中所需私有仓库的 Contents read。
+未配置时 workflow 明确记录 BLOCKED 并跳过跨仓库运行，不报告其通过；各仓库自己的 CI 继续独立执行。
