@@ -177,7 +177,7 @@ def main() -> None:
     try:
         page = urllib.request.urlopen(address + "/durable-research", timeout=10).read().decode()
         fields = {
-            name: re.search(rf'name="{name}" value="([^"<>]+)"', page)[1]
+            name: re.search(rf'name="{name}"\s+value="([^"<>]+)"', page)[1]
             for name in ("_csrf_token", "snapshot", "revision", "key")
         }
         fields["window"] = "5"
