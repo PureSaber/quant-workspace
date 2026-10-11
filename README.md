@@ -122,3 +122,6 @@ by moving a historical tag or editing canonical JSON.
 - [quant-research-notes](../quant-research-notes) — architecture docs
 
 衍生品研究安装与数据边界见 [独立研究环境](profiles/derivatives-research/README.md)。
+
+经济比较、独立基准、预测/连续回放、修订、诊断与执行隔离见
+[八项研究证据升级入口](profiles/evidence-research/README.md)。候选提交与实测状态在交付清单中分别记录。
