@@ -138,6 +138,62 @@ def make_candidate(fixture: dict, path: Path, *, contract: Path | None = None, s
     )
 
 
+def test_prepared_environment_is_usable_at_its_final_location(
+    release_fixture, tmp_path, monkeypatch
+):
+    candidate = tmp_path / "candidate.json"
+    make_candidate(release_fixture, candidate)
+    destination = tmp_path / "prepared"
+    built_at = []
+
+    def offline_bootstrap(profile, root, project, *, execute):
+        assert execute
+        built_at.append(root)
+        # Real venv/interpreter and absolute editable metadata, no network install.
+        create_environment(root / project)
+
+    monkeypatch.setattr(delivery, "bootstrap", offline_bootstrap)
+    delivery.prepare_candidate(
+        candidate, release_fixture["root"], destination, execute=True, build_environments=True
+    )
+    readiness = delivery.check_runtime(
+        destination / ".quant-delivery/runtime-profile.json", destination
+    )
+    assert readiness["status"] == "ready", readiness
+    assert built_at == [destination]
+
+
+def test_failed_environment_build_retains_diagnostics_in_new_destination(
+    release_fixture, tmp_path, monkeypatch
+):
+    candidate = tmp_path / "candidate.json"
+    make_candidate(release_fixture, candidate)
+    destination = tmp_path / "prepared"
+
+    def failed_bootstrap(profile, root, project, *, execute):
+        environment = root / project / ".venv"
+        environment.mkdir()
+        (environment / "bootstrap-0.log").write_text("installation failed", encoding="utf-8")
+        raise ValueError("installation failed")
+
+    monkeypatch.setattr(delivery, "bootstrap", failed_bootstrap)
+    with pytest.raises(ValueError, match="installation failed"):
+        delivery.prepare_candidate(
+            candidate, release_fixture["root"], destination, execute=True, build_environments=True
+        )
+    assert (destination / "sample/.venv/bootstrap-0.log").read_text(
+        "utf-8"
+    ) == "installation failed"
+    assert (
+        delivery.check_runtime(destination / ".quant-delivery/runtime-profile.json", destination)[
+            "status"
+        ]
+        == "blocked"
+    )
+    with pytest.raises(ValueError, match="must not exist"):
+        delivery.prepare_candidate(candidate, release_fixture["root"], destination, execute=True)
+
+
 def test_release_preparation_acceptance_and_cas_activation(release_fixture, tmp_path, capsys):
     candidate_path = tmp_path / "candidate.json"
     candidate = make_candidate(release_fixture, candidate_path)
