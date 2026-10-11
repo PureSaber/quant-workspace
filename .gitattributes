@@ -2,3 +2,4 @@
 profiles/daily-research-v2/requirements.lock text eol=lf
 profiles/research-workbench/requirements.lock text eol=lf
 profiles/research-workbench/fixtures.lock text eol=lf
+profiles/durable-research/requirements.lock text eol=lf

@@ -1,0 +1,14 @@
+{
+  "schema_version": "quant.durable-research-stack/v1",
+  "python": "3.12",
+  "requirements_sha256": "a366b187fc73de522164765b49053b779fead20f78531e08d5e620825b398719",
+  "repositories": {
+    "quant-data-kit": "fd080755eebdd5851d98e2b00830235f39ea5ce7",
+    "quant-factors": "0d7eb5c55ad47ca25271ad7a29cae19f482da5b7",
+    "quant-lab": "d38a7ad2db896e44ac8927178cf8a54ae512d432",
+    "quant-pipeline": "02909a92c3ca9a94db7e84746ba839d8740deb83",
+    "quant-workspace": "3bb474e5d7a38b41b539baa54517263ef9137da2",
+    "quant-studio": "1ee33a5896ad2920befd2e4df258d9880cf9d954"
+  },
+  "service_machine_acceptance": "pending_by_user_request"
+}
