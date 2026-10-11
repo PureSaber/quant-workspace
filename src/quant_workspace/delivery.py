@@ -610,15 +610,29 @@ def verify_acceptance(candidate: dict, evidence_path: Path, prepared_root: Path)
         raise ValueError("Acceptance evidence does not accept this candidate")
     expected_cases = {case["id"]: case for case in candidate["acceptance_suite"]["cases"]}
     actual_cases = evidence.get("cases")
-    if not isinstance(actual_cases, list) or {row.get("id") for row in actual_cases} != set(
-        expected_cases
+    if (
+        not isinstance(actual_cases, list)
+        or len(actual_cases) != len(expected_cases)
+        or any(
+            not isinstance(row, dict) or not isinstance(row.get("id"), str) for row in actual_cases
+        )
+        or {row["id"] for row in actual_cases} != set(expected_cases)
     ):
         raise ValueError("Acceptance evidence case set mismatch")
     for result in actual_cases:
         case = expected_cases[result["id"]]
         if result.get("status") != "passed" or result.get("returncode") != 0:
             raise ValueError(f"Acceptance case did not pass: {result['id']}")
-        recorded = {row.get("path"): row for row in result.get("outputs", [])}
+        outputs = result.get("outputs")
+        if (
+            not isinstance(outputs, list)
+            or len(outputs) != len(case["outputs"])
+            or any(
+                not isinstance(row, dict) or not isinstance(row.get("path"), str) for row in outputs
+            )
+        ):
+            raise ValueError("Acceptance output set mismatch")
+        recorded = {row["path"]: row for row in outputs}
         if set(recorded) != {row["path"] for row in case["outputs"]}:
             raise ValueError("Acceptance output set mismatch")
         for expected in case["outputs"]:
