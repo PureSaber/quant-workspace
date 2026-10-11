@@ -44,7 +44,9 @@ quant-workspace release-candidate --profile runtime.json --source-root D:/quant 
 quant-workspace prepare-release --candidate candidate.json --source-root D:/quant --destination D:/staging/candidate-01
 ```
 
-`prepare-release`默认不写目录。加`--execute`后，工具使用本地干净仓库执行`git clone --local --no-hardlinks --no-checkout`并检出清单commit，不修改来源仓库，也不需要网络获取源码。加`--build-environments`才会对每个项目显式调用现有`bootstrap-env`逻辑；依赖安装是否访问包源取决于锁中的依赖和本机pip配置，工具不会宣称该步骤必然离线。目标必须不存在，失败不会替换目标目录。
+`prepare-release`默认不写目录。加`--execute`后，工具使用本地干净仓库执行`git clone --local --no-hardlinks --no-checkout`并检出清单commit，不修改来源仓库，也不需要网络获取源码。加`--build-environments`才会对每个项目显式调用现有`bootstrap-env`逻辑；依赖安装是否访问包源取决于锁中的依赖和本机pip配置，工具不会宣称该步骤必然离线。目标必须不存在，不会替换已有目录。
+
+源码先在临时目录核对后移入最终新目录，虚拟环境在最终路径创建，避免移动后破坏入口脚本或editable安装中的绝对路径。若环境创建或复核失败，操作返回失败并保留该新目录及bootstrap日志；未通过`doctor`与`accept-release`的目录不能激活。排查后应选择新的目标目录重建，工具不会覆盖失败现场。
 
 ```text
 quant-workspace prepare-release --candidate candidate.json --source-root D:/quant --destination D:/staging/candidate-01 --execute --build-environments

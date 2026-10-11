@@ -466,18 +466,24 @@ def prepare_candidate(
         )
         (metadata / "candidate-file.sha256").write_text(candidate_file_sha + "\n", encoding="ascii")
         _candidate_sources_match(candidate, staging)
-        if build_environments:
-            profile_path = metadata / "runtime-profile.json"
-            for item in candidate["projects"]:
-                bootstrap(profile_path, staging, item["id"], execute=True)
-            if check_runtime(profile_path, staging)["status"] != "ready":
-                raise ValueError("Prepared environments did not pass runtime verification")
         _candidate_sources_match(candidate, source_root)
         _candidate_sources_match(candidate, staging)
         staging.replace(destination)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    if build_environments:
+        # Venv entry points and editable installs contain absolute paths. Build
+        # after publishing the source directory, and never relocate the runtime.
+        # Retain an incomplete new destination and bootstrap logs on failure;
+        # acceptance still requires a complete, ready environment.
+        profile_path = destination / ".quant-delivery/runtime-profile.json"
+        for item in candidate["projects"]:
+            bootstrap(profile_path, destination, item["id"], execute=True)
+        if check_runtime(profile_path, destination)["status"] != "ready":
+            raise ValueError("Prepared environments did not pass runtime verification")
+        _candidate_sources_match(candidate, source_root)
+        _candidate_sources_match(candidate, destination)
     return {
         "schema_version": "quant.release-preparation/v1",
         "candidate_sha256": candidate["candidate_sha256"],
