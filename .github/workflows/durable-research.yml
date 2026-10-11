@@ -1,0 +1,47 @@
+name: Durable research integration
+
+on:
+  pull_request:
+    paths:
+      - profiles/durable-research/**
+      - .github/workflows/durable-research.yml
+  push:
+    branches: [main, master]
+    paths:
+      - profiles/durable-research/**
+      - .github/workflows/durable-research.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-stack:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install the six pinned packages
+        run: python profiles/durable-research/bootstrap.py --root installed-durable
+      - name: Check profile code and exercise the installed stack
+        shell: bash
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PYTHON=installed-durable/env/Scripts/python.exe
+          else
+            PYTHON=installed-durable/env/bin/python
+          fi
+          "$PYTHON" -I -m ruff check profiles/durable-research
+          "$PYTHON" -I -m ruff format --check profiles/durable-research
+          "$PYTHON" -I profiles/durable-research/smoke.py --root installed-durable
