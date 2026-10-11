@@ -17,6 +17,7 @@ from quant_workspace.delivery import (
 )
 from quant_workspace.loader import load_workspace
 from quant_workspace.m7_certification import load_m7_certification, validate_m7_certification
+from quant_workspace.platform_status import platform_status, render_status
 from quant_workspace.runtime_readiness import (
     bootstrap,
     check_runtime,
@@ -78,6 +79,39 @@ def cmd_path(args: argparse.Namespace) -> int:
     ws = load_workspace(Path(args.config), root_override=args.root or None)
     print(ws.path(args.project, args.key))
     return 0
+
+
+def cmd_platform_status(args: argparse.Namespace) -> int:
+    try:
+        report = platform_status(
+            load_capabilities(),
+            Path(args.source_root),
+            **{
+                name: Path(getattr(args, name)) if getattr(args, name) else None
+                for name in (
+                    "profile_path",
+                    "candidate_path",
+                    "evidence_path",
+                    "prepared_root",
+                    "state_dir",
+                    "workflow_snapshot",
+                )
+            },
+        )
+        output = (
+            render_status(report)
+            if args.format == "html"
+            else json.dumps(report, ensure_ascii=False, indent=2)
+        )
+        if args.out:
+            with Path(args.out).open("x", encoding="utf-8") as stream:
+                stream.write(output + "\n")
+        else:
+            print(output)
+        return 2 if report["status"] == "attention_required" else 0
+    except (KeyError, OSError, TypeError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
+        return 2
 
 
 def cmd_runtime(args: argparse.Namespace) -> int:
@@ -240,6 +274,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Check local source presence, Git and evidence only",
     )
     capabilities.set_defaults(func=cmd_capabilities)
+
+    status = sub.add_parser(
+        "platform-status",
+        help="Inspect source, installation, accepted combination and release state",
+    )
+    status.add_argument("--source-root", required=True)
+    status.add_argument("--profile", dest="profile_path", default="")
+    status.add_argument("--candidate", dest="candidate_path", default="")
+    status.add_argument("--evidence", dest="evidence_path", default="")
+    status.add_argument("--prepared-root", default="")
+    status.add_argument("--state-dir", default="")
+    status.add_argument("--workflow-snapshot", default="")
+    status.add_argument("--format", choices=("json", "html"), default="json")
+    status.add_argument(
+        "--out", default="", help="New file only; existing reports are not overwritten"
+    )
+    status.set_defaults(func=cmd_platform_status)
 
     runtime = sub.add_parser("runtime-profile", help="Pin selected clean checkouts and lock bytes")
     runtime.add_argument("--projects", nargs="+", required=True)

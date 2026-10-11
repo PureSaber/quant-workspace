@@ -8,7 +8,7 @@ Central path resolver, immutable `StackManifest 1.0.0` producer, and strict `M7C
 
 ## 当前平台范围
 
-日常开发和维护使用[24仓配置](configs/platform.workspace.yaml)。历史桌面配置保留旧项目；M8不可变发行仍使用原来的14仓配置。两者不能互换，当前HEAD也不会因仓库属于发行清单而自动获得认证。
+日常开发和维护使用[26仓配置](configs/platform.workspace.yaml)。历史桌面配置保留旧项目；M8不可变发行仍使用原来的14仓配置。两者不能互换，当前HEAD也不会因仓库属于发行清单而自动获得认证。
 
 ```sh
 quant-workspace capabilities
@@ -21,6 +21,8 @@ quant-workspace --config configs/platform.workspace.yaml show
 `--inventory`仅检查本地独立Git检出、精确HEAD、脏状态及证据文件存在性，不导入或执行仓库代码。缺仓、无提交、证据缺失或目录越界会返回非零状态；脏状态单列，不冒充源码缺失。结果始终明确`runtime_verified=false`、`integration_verified=false`、`market_data_certified=false`和`release_verified=false`。运行环境、真实数据、跨仓产物和历史发布需要各自的实际验收。
 
 ## Install
+
+[平台状态检查](docs/PLATFORM_STATUS.md)将能力声明、当前源码、实际安装环境、指定组合验收、发布指针和 CI 作业结果放在同一份 JSON/HTML 中，分别标明检查范围。运行服务仍需由实际进程提供身份观测。
 
 日常独立环境可使用 `runtime-profile` 固定提交与依赖锁，`doctor` 只读核对实际解释器和已安装依赖，`bootstrap-env` 预览或显式创建全新环境。完整步骤及认证边界见[环境检查与重建](docs/RUNTIME_READINESS.md)。这些命令不修改历史发行或已有环境。
 
