@@ -66,6 +66,11 @@ uv pip compile profiles/research-workbench/requirements.in --universal --python-
 .venv-research/Scripts/python.exe quant-workspace/profiles/research-workbench/smoke.py --output integration-continuous --account-policy continuous
 ```
 
+Windows 请使用较短的集成根目录和输出目录名。逐折回放会继续嵌套临时产物目录，
+部分 PyArrow 文件操作仍可能受到传统路径长度限制；已观察到 266 字符的 Parquet
+完整路径返回 `WinError 3`。遇到此错误时保留失败输出，在新的短路径下重跑，
+例如使用 `--output i` 和 `--output c`；不要覆盖原研究目录或修改固定源码、锁文件。
+
 验收生成明确标记为合成的 ETF 数据，执行带动态状态的滚动训练与测试、训练方向学习、
 2 倍成本和延迟信号候选，检查逐折风险证据、报告与续跑产物哈希。
 GitHub `Research integration` 工作流在 Windows/Linux 分别从固定提交安装，覆盖独立折账户和连续账户。
