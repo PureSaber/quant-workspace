@@ -55,7 +55,14 @@ before restarting through `start.ps1`.
 
 Register only one scheduler for `python -I -B -X utf8 -m quant_pipeline.etf_daily
 tick --profile <operator-profile>`. The module enforces the Shanghai exchange
-calendar, 16:30 initial slot and 17:00/18:00 acquisition retries. Use the formal
+calendar. Legacy profiles use 16:30, 17:00 and 18:00; this deployment explicitly
+configures optional `schedule` slots 16:30, 17:00, 18:00, 21:00 and 22:00 with
+`collection_timeout_seconds: 600` and `timezone: Asia/Shanghai`. A killed
+collection preserves evidence; the final failed slot ends that day's retries.
+Manual and scheduled actions share the native operation lock and slot receipts.
+Register new accounts with `--require-timely-orders` to require completed order
+evidence before simulated next-open fills. Older frozen accounts are not modified.
+Use the formal
 Codex heartbeat when scheduling in the app; local automations require the app
 and machine to remain running. The app scheduler may wake more often; duplicate
 slots do not write a second observation. Keep it paused until candidate selection
