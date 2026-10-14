@@ -1,0 +1,17 @@
+{
+  "requirements_sha256": "060196207ab7303d2e4002a5642a81ba23a3249f6efb1590d04e8dd9147fafcc",
+  "repositories": {
+    "quant-data-kit": "cf83081c6abe645292b138e4efd70276f620b0b5",
+    "quant-factors": "b3c01f5e63092cc728aee3b7b45edbba2b487a6e",
+    "quant-lab": "e189eaf7004fe6749d9dd675870e32ae51c45a7a",
+    "quant-execution": "a5ed0bf66e11dc7e49b92c1d54a1cd86b41b4dab",
+    "quant-portfolio": "439d69ce0e801da66cc9570324efce5aea995b75",
+    "quant-risk-monitor": "52d4288d8dfcb6e3f496ec7e4c15024063f8a62c",
+    "a-share-multifactor": "fa00ce031ad397e53bd2e347706b724b4e2e115e",
+    "quant-report-hub": "7907140e1177e0e55e412b1ef35f17e55ba9b248",
+    "quant-pipeline": "2b367b40f4bd0591fb136b457e33b23c08e28e0d",
+    "quant-workspace": "81613c99dd7ba5ce28568435638b88bd8e49e5df",
+    "quant-studio": "373ef716b2a62711ad2a04dd6c198c81d7a777dc"
+  },
+  "schema": "quant.etf-stack/v1"
+}
