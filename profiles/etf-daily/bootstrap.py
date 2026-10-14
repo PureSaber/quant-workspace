@@ -37,6 +37,9 @@ def call(*args):
         [str(a) for a in args],
         check=True,
         env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
 
