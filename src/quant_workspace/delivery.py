@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from quant_workspace.capabilities import _git
+from quant_workspace.runtime_identity import hidden_options
 from quant_workspace.runtime_readiness import (
     _load as _load_runtime_profile,
 )
@@ -448,12 +449,13 @@ def prepare_candidate(
                 str(source),
                 str(target),
             ]
-            subprocess.run(clone, check=True, capture_output=True, text=True)
+            subprocess.run(clone, check=True, capture_output=True, text=True, **hidden_options())
             subprocess.run(
                 ["git", "-C", str(target), "checkout", "--detach", item["revision"]],
                 check=True,
                 capture_output=True,
                 text=True,
+                **hidden_options(),
             )
         metadata = staging / ".quant-delivery"
         metadata.mkdir()
@@ -541,6 +543,7 @@ def run_acceptance(
                 encoding="utf-8",
                 errors="replace",
                 timeout=timeout,
+                **hidden_options(),
             )
             returncode = completed.returncode
             stdout = completed.stdout

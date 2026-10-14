@@ -39,7 +39,11 @@ def write_distribution(
 
 def create_environment(repo: Path) -> None:
     environment = repo / ".venv"
-    subprocess.run([sys.executable, "-I", "-m", "venv", str(environment)], check=True)
+    # This fixture writes explicit synthetic distributions below; bootstrapping
+    # pip/setuptools adds no test evidence and exceeds Windows paths on 3.10/3.11.
+    subprocess.run(
+        [sys.executable, "-I", "-m", "venv", "--without-pip", str(environment)], check=True
+    )
     site = environment / (
         "Lib/site-packages"
         if sys.platform == "win32"

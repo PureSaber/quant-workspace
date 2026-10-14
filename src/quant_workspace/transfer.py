@@ -20,7 +20,7 @@ SPEC_SCHEMA = "quant.transfer-spec/v1"
 MANIFEST_SCHEMA = "quant.transfer-manifest/v1"
 STATUS_SCHEMA = "quant.transfer-restore-status/v1"
 MANIFEST_NAME = "TRANSFER_MANIFEST.json"
-_CATEGORIES = {"run", "data", "config", "runtime", "source"}
+_CATEGORIES = {"run", "data", "config", "runtime", "source", "account", "receipt", "project"}
 _SENSITIVE_PARTS = {
     ".env",
     ".ssh",
@@ -432,7 +432,11 @@ def restore_transfer_package(archive_path: Path, destination: Path) -> dict:
     if _file_sha(archive_path) != archive_sha:
         raise ValueError("Transfer archive changed during restore")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.restore-", dir=destination.parent))
+    # Keep staging shorter than typical versioned destinations: native Windows
+    # readers may still be limited to MAX_PATH for hashed project filenames.
+    if os.name == "nt" and any(len(str(destination / target)) >= 260 for target in payload):
+        raise ValueError("Use a shorter fresh restore destination for native Windows readers")
+    staging = Path(tempfile.mkdtemp(prefix=".r-", dir=destination.parent))
     try:
         for target, raw in payload.items():
             output = _inside(staging, target, "restore target")

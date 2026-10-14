@@ -11,6 +11,8 @@ import subprocess
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
 
+from quant_workspace.runtime_identity import hidden_options
+
 
 def load_capabilities() -> dict:
     catalog = json.loads(
@@ -63,6 +65,7 @@ def _git(path: Path, *args: str) -> str:
         errors="replace",
         timeout=10,
         check=True,
+        **hidden_options(),
     )
     return result.stdout.strip()
 
