@@ -1,17 +1,17 @@
 {
-  "requirements_sha256": "060196207ab7303d2e4002a5642a81ba23a3249f6efb1590d04e8dd9147fafcc",
+  "schema": "quant.etf-stack/v1",
   "repositories": {
-    "quant-data-kit": "cf83081c6abe645292b138e4efd70276f620b0b5",
-    "quant-factors": "b3c01f5e63092cc728aee3b7b45edbba2b487a6e",
-    "quant-lab": "e189eaf7004fe6749d9dd675870e32ae51c45a7a",
-    "quant-execution": "a5ed0bf66e11dc7e49b92c1d54a1cd86b41b4dab",
-    "quant-portfolio": "439d69ce0e801da66cc9570324efce5aea995b75",
-    "quant-risk-monitor": "52d4288d8dfcb6e3f496ec7e4c15024063f8a62c",
-    "a-share-multifactor": "fa00ce031ad397e53bd2e347706b724b4e2e115e",
-    "quant-report-hub": "7907140e1177e0e55e412b1ef35f17e55ba9b248",
-    "quant-pipeline": "69b1845ddf3f4b2a0e2dec7deffb0f8efef5b2d8",
-    "quant-workspace": "81613c99dd7ba5ce28568435638b88bd8e49e5df",
-    "quant-studio": "4668922817491df4da10aac3607631e228ab7c11"
+    "quant-data-kit": "ad3440700b226497c40093197f1df4321b49d1e8",
+    "quant-factors": "1c798bc737bc92fa5eca85dd0663dc608104f721",
+    "quant-lab": "4c48f8a678c8d29a7dc46294c99f0e668cd6c52b",
+    "quant-execution": "8423726a9d80b6509d2c016a7478fc0f40a29774",
+    "quant-portfolio": "7cba8409559fb1625e88b15b983a446e2e6e61d6",
+    "quant-risk-monitor": "e26117c792b08477ff131d3c876c0bde4c1f05b1",
+    "a-share-multifactor": "711559be4d66f4d1c9387a004587b0848ca004c6",
+    "quant-report-hub": "3857c3972864da705b64be2a52565a1bcfa9cfb0",
+    "quant-pipeline": "386607aac4c4f90de3f89325e6c7441c81a2e7b0",
+    "quant-workspace": "48c8d44fd96f61548f6e20a32df4dbdcfe7a01df",
+    "quant-studio": "ef044b8a381b8bc676581c9eb6b4711494f4d096"
   },
-  "schema": "quant.etf-stack/v1"
+  "requirements_sha256": "40c2a507b91e4c5fe88c2b22e5347599853be5656b10af0c83546ab951bae096"
 }
