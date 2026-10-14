@@ -17,6 +17,7 @@ from quant_workspace.transfer import (
     SPEC_SCHEMA,
     _file_sha,
     _has_symlink,
+    _relative,
     create_transfer_package,
     restore_transfer_package,
     verify_transfer_package,
@@ -201,6 +202,14 @@ def _bindings_covered(config, checks):
                     raise ValueError("Frozen external input is absent from backup roots: " + value)
 
 
+def _directories(config):
+    return {
+        label: ["."] + sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_dir())
+        for label, row in config["roots"].items()
+        if (root := Path(row["path"])).is_dir()
+    }
+
+
 def preview(config_path):
     config = load_config(config_path)
     files = _files(config)
@@ -212,6 +221,7 @@ def preview(config_path):
         "schema_version": "quant.operational-backup-plan/v1",
         "config_sha256": _file_sha(Path(config_path)),
         "files": {target: value[2] for target, value in files.items()},
+        "directories": _directories(config),
         "root_shapes": {
             label: "file" if Path(row["path"]).is_file() else "directory"
             for label, row in config["roots"].items()
@@ -263,6 +273,8 @@ def backup(config_path, expected_plan):
         result = create_transfer_package(spec_path, root, Path(config["archive"]))
         if {k: v[2] for k, v in _files(config).items()} != plan["files"]:
             raise ValueError("Sources changed during backup; archive has no approved receipt")
+        if _directories(config) != plan["directories"]:
+            raise ValueError("Source directories changed during backup; preview again")
         receipt = {
             "schema_version": "quant.operational-backup-receipt/v1",
             "created_at": _now(),
@@ -307,6 +319,17 @@ def restore_drill(config_path):
             "scope": "Isolated saved-state validation; original absolute bindings are retained",
         }
         try:
+            # Transfer archives contain files. Preserve empty account containers and
+            # empty project stores without consulting the possibly offline source.
+            for label, directories in receipt["plan"].get("directories", {}).items():
+                if (
+                    label not in config["roots"]
+                    or receipt["plan"]["root_shapes"][label] != "directory"
+                ):
+                    raise ValueError("Invalid restored directory root")
+                for relative in directories:
+                    suffix = Path() if relative == "." else _relative(relative, "directory")
+                    (destination / label / suffix).mkdir(parents=True, exist_ok=True)
             for label, row in config["roots"].items():
                 target = destination / label
                 # Use archived shape, never depend on original source availability.

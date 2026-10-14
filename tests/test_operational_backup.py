@@ -86,6 +86,33 @@ def test_stale_backup_and_damaged_archive_rejected_without_restore(configured):
     assert not Path(config["restore_destination"]).exists()
 
 
+def test_empty_account_container_restores_with_original_source_offline(configured, monkeypatch):
+    pytest.importorskip("quant_pipeline")
+    path, config = configured
+    account = Path(config["roots"]["account"]["path"])
+    (account / "record.json").unlink()
+    config["roots"]["account"]["reader"] = "paper-accounts"
+    empty = Path(config["roots"]["config"]["path"]) / "empty/nested"
+    empty.mkdir(parents=True)
+    monkeypatch.setattr(
+        backup,
+        "native_read",
+        lambda config, row, path: (
+            NATIVE_READ(config, row, path)
+            if row["reader"] in {"json", "paper-accounts"}
+            else {"read_only": True}
+        ),
+    )
+    _write_atomic(path, config)
+    backup.backup(path, backup.preview(path)["plan_sha256"])
+    account.rename(account.with_name("offline-account"))
+    restored = backup.restore_drill(path)
+    assert restored["status"] == "verified"
+    assert restored["native_readers"]["account"]["accounts"] == {}
+    assert (Path(config["restore_destination"]) / "config/empty/nested").is_dir()
+    assert not account.exists()
+
+
 def test_backup_rejects_incomplete_scope_busy_jobs_and_uncovered_bindings(configured):
     path, config = configured
     del config["roots"]["receipt"]
