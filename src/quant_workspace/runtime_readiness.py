@@ -21,6 +21,7 @@ from packaging.utils import InvalidWheelFilename, canonicalize_name, parse_wheel
 from packaging.version import InvalidVersion, Version
 
 from quant_workspace.capabilities import _git
+from quant_workspace.runtime_identity import hidden_options
 
 try:
     import tomllib
@@ -828,6 +829,7 @@ def bootstrap(path: Path, root: Path, project: str, *, execute: bool = False) ->
                     errors="replace",
                     timeout=900,
                     check=False,
+                    **hidden_options(),
                 )
             except KeyboardInterrupt as exc:
                 _write_step_log(

@@ -33,7 +33,15 @@ MODULES = {
 
 def call(*args):
     env = {k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME"}}
-    subprocess.run([str(a) for a in args], check=True, env=env)
+    subprocess.run(
+        [str(a) for a in args],
+        check=True,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+    )
 
 
 def installed_identity(stack):
@@ -108,7 +116,9 @@ def main():
         if args.source_root:
             source = (args.source_root / name).resolve()
             actual = subprocess.check_output(
-                ["git", "-C", str(source), "rev-parse", commit + "^{commit}"], text=True
+                ["git", "-C", str(source), "rev-parse", commit + "^{commit}"],
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             ).strip()
             if actual != commit:
                 raise ValueError(f"{name}: checkout differs from stack")
@@ -136,6 +146,7 @@ def main():
         ],
         text=True,
         encoding="utf-8",
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
     (root / "installed-stack.json").write_text(receipt, encoding="utf-8")
     shutil.copytree(PROFILE, root / "profile")
