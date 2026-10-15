@@ -91,6 +91,16 @@ Studio 的提交端必须在同一个文件锁内检查 marker、写任务并入
 `paper-account`、`daily-receipts` 或 JSON 配置校验。账户读取器可指定旧冻结 `python`，
 其余使用配置默认解释器。旧冻结环境不需要安装本工具。
 
+每个根可选 `reader_path`，缺省为 `.`。归档仍覆盖整个 `path`，原生读取器仅检查
+`path/reader_path`；恢复后读取相同的归档内子路径，不依赖原始来源在线。
+`reader_path` 必须是使用 `/` 的规范相对路径；绝对路径、`..`、链接或 junction、
+不存在的读取目标均拒绝。源路径和恢复副本在调用读取器前分别检查。
+外部冻结 inputs 的覆盖范围仍按完整 data 根计算，不会缩小到读取子路径。
+例如把 state 整体声明为 project 根并使用 `reader_path: "runs"`；把 data 整体声明为
+data 根并使用 `reader_path: "etf/snapshots/实际冻结摘要"` 和 `reader: "inputs"`。
+此时删去同一 state/runs、data 快照的重复根；transfer 继续拒绝重复来源。
+根内其他文件仍归档，但不因此获得该原生读取器的语义校验。
+
 ```json
 {
   "schema_version": "quant.operational-backup/v1",

@@ -90,6 +90,27 @@ READERS = {
 }
 
 
+def _reader_relative(row):
+    value = row.get("reader_path", ".")
+    relative = Path() if value == "." else _relative(value, "reader_path")
+    if relative.anchor:
+        raise ValueError("reader_path must be a confined relative path")
+    return relative
+
+
+def _reader_target(row, root):
+    root = Path(root).absolute()
+    target = root / _reader_relative(row)
+    if (
+        not target.exists()
+        or _has_symlink(root.parent, target)
+        or target.resolve() != target.absolute()
+        or not target.resolve().is_relative_to(root.resolve())
+    ):
+        raise ValueError("reader_path is missing, linked or outside its backup root")
+    return target
+
+
 def load_config(path):
     config = json.loads(Path(path).read_text("utf-8-sig"))
     if config.get("schema_version") != "quant.operational-backup/v1":
@@ -105,6 +126,7 @@ def load_config(path):
             raise ValueError("Every root needs an absolute path and a supported native reader")
         if row.get("python") and not Path(row["python"]).is_absolute():
             raise ValueError("Reader interpreter must be an absolute path")
+        _reader_relative(row)
         required = {"account": {"paper-account", "paper-accounts"}, "project": {"projects"}}.get(
             row["category"]
         )
@@ -129,6 +151,9 @@ def load_config(path):
 
 
 def native_read(config, row, path):
+    # Resolve against the supplied source or restored root, never the configured
+    # original path: restore verification must also work with sources offline.
+    target = _reader_target(row, path)
     result = subprocess.run(
         [
             row.get("python", config["python"]),
@@ -138,7 +163,7 @@ def native_read(config, row, path):
             "-c",
             READER,
             row["reader"],
-            str(path),
+            str(target),
         ],
         capture_output=True,
         check=False,

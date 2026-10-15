@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -168,6 +170,195 @@ def test_original_configuration_and_external_inputs_are_byte_preserved(configure
     assert mapping["mappings"] == {}
 
 
+@pytest.mark.parametrize(
+    "reader_path",
+    [
+        "/outside",
+        "C:/outside",
+        "C:outside",
+        "//host/share",
+        "..",
+        "a/../b",
+        "../b",
+        "a\\b",
+        "",
+        None,
+        3,
+        "a//b",
+        "./runs",
+        "runs/",
+    ],
+)
+def test_reader_path_configuration_rejects_noncanonical_or_escaping_paths(configured, reader_path):
+    path, config = configured
+    config["roots"]["data"]["reader_path"] = reader_path
+    _write_atomic(path, config)
+    with pytest.raises(ValueError, match="reader_path"):
+        backup.load_config(path)
+
+
+def test_reader_subtree_roundtrip_archives_full_root_and_preserves_binding_scope(configured):
+    path, config = configured
+    row = config["roots"]["data"]
+    root = Path(row["path"])
+    row["reader_path"] = "etf/snapshots/frozen"
+    selected = root / row["reader_path"]
+    selected.mkdir(parents=True)
+    (selected / "input.json").write_text('{"frozen":true}')
+    outside_reader = root / "other.json"
+    outside_reader.write_text("preserve these bytes without JSON interpretation")
+    _write_atomic(path, config)
+    # This input is outside reader_path but still covered by the complete data root.
+    backup._bindings_covered(config, {"account": {"bindings": {"catalog": str(outside_reader)}}})
+    with pytest.raises(ValueError, match="absent"):
+        backup._bindings_covered(config, {"account": {"bindings": {"catalog": str(path)}}})
+    plan = backup.preview(path)
+    assert "data/other.json" in plan["files"]
+    assert "data/etf/snapshots/frozen/input.json" in plan["files"]
+    backup.backup(path, plan["plan_sha256"])
+    root.rename(root.with_name("offline-data"))
+    result = backup.restore_drill(path)
+    assert result["status"] == "verified"
+    assert result["native_readers"]["data"]["files"] == 1
+    restored = Path(config["restore_destination"]) / "data"
+    assert (
+        restored / "other.json"
+    ).read_text() == "preserve these bytes without JSON interpretation"
+    assert (restored / row["reader_path"] / "input.json").read_text() == '{"frozen":true}'
+    assert not root.exists()
+
+
+def test_reader_path_does_not_allow_duplicate_source_roots(configured):
+    path, config = configured
+    root = Path(config["roots"]["data"]["path"])
+    child = root / "snapshot"
+    child.mkdir()
+    (child / "input.json").write_text("{}")
+    config["roots"]["data"]["reader_path"] = "snapshot"
+    config["roots"]["duplicate"] = {"path": str(child), "reader": "json", "category": "data"}
+    _write_atomic(path, config)
+    with pytest.raises(ValueError, match="must be unique"):
+        backup.backup(path, backup.preview(path)["plan_sha256"])
+    assert not (Path(config["state_dir"]) / "backup.json").exists()
+
+
+def test_reader_path_default_dot_and_file_targets_are_supported(tmp_path):
+    target = tmp_path / "record.json"
+    target.write_text("{}")
+    config = {"python": sys.executable}
+    for row, root in (
+        ({"reader": "json"}, target),
+        ({"reader": "json", "reader_path": "."}, target),
+        ({"reader": "json", "reader_path": "record.json"}, tmp_path),
+    ):
+        assert NATIVE_READ(config, row, root)["files"] == 1
+    with pytest.raises(ValueError, match="reader_path.*missing"):
+        NATIVE_READ(config, {"reader": "json", "reader_path": "missing"}, target)
+
+
+def test_reader_path_missing_source_and_restored_target_fail_closed(configured, monkeypatch):
+    path, config = configured
+    config["roots"]["data"]["reader_path"] = "missing.json"
+    _write_atomic(path, config)
+    with pytest.raises(ValueError, match="reader_path.*missing"):
+        backup.preview(path)
+    assert not Path(config["archive"]).exists()
+    config["roots"]["data"]["reader_path"] = "record.json"
+    _write_atomic(path, config)
+    backup.backup(path, backup.preview(path)["plan_sha256"])
+    restore = backup.restore_transfer_package
+
+    def remove_restored_reader(archive, destination):
+        result = restore(archive, destination)
+        (destination / "data/record.json").unlink()
+        return result
+
+    monkeypatch.setattr(backup, "restore_transfer_package", remove_restored_reader)
+    with pytest.raises(ValueError, match="reader_path.*missing"):
+        backup.restore_drill(path)
+    receipt = json.loads((Path(config["state_dir"]) / "restore.json").read_text())
+    assert receipt["status"] == "failed" and "reader_path" in receipt["error"]
+
+
+def directory_link(link, target):
+    if os.name == "nt":
+        # Junctions exercise actual Windows links without requiring symlink privileges.
+        def quote(value):
+            return "'" + str(value).replace("'", "''") + "'"
+
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                f"New-Item -ItemType Junction -Path {quote(link)} -Target {quote(target)} | Out-Null",
+            ],
+            check=True,
+            capture_output=True,
+            **backup.hidden_options(),
+        )
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_reader_path_rejects_source_links_including_in_root_links(configured, nested):
+    path, config = configured
+    row = config["roots"]["data"]
+    root = Path(row["path"])
+    target = root / "real"
+    target.mkdir()
+    (target / "record.json").write_text("{}")
+    link = root / "linked"
+    directory_link(link, target)
+    row["reader_path"] = "linked/record.json" if nested else "linked"
+    _write_atomic(path, config)
+    try:
+        with pytest.raises(ValueError, match="reader_path.*linked"):
+            NATIVE_READ(config, row, root)
+        with pytest.raises(ValueError, match="links or junctions"):
+            backup.preview(path)
+    finally:
+        link.rmdir() if os.name == "nt" else link.unlink()
+
+
+def test_reader_path_rejects_restored_junction_before_native_read(configured, monkeypatch):
+    path, config = configured
+    row = config["roots"]["data"]
+    root = Path(row["path"])
+    selected = root / "selected"
+    selected.mkdir()
+    (selected / "record.json").write_text("{}")
+    row["reader_path"] = "selected"
+    _write_atomic(path, config)
+    backup.backup(path, backup.preview(path)["plan_sha256"])
+    restore = backup.restore_transfer_package
+    outside = path.parent / "outside"
+    outside.mkdir()
+    (outside / "record.json").write_text('{"preserved":true}')
+    link = Path(config["restore_destination"]) / "data/selected"
+
+    def redirect_restored_reader(archive, destination):
+        result = restore(archive, destination)
+        (link / "record.json").unlink()
+        link.rmdir()
+        directory_link(link, outside)
+        return result
+
+    monkeypatch.setattr(backup, "restore_transfer_package", redirect_restored_reader)
+    try:
+        with pytest.raises(ValueError, match="reader_path.*linked"):
+            backup.restore_drill(path)
+        receipt = json.loads((Path(config["state_dir"]) / "restore.json").read_text())
+        assert receipt["status"] == "failed" and "data" not in receipt["native_readers"]
+        assert "reader_path" in receipt["error"]
+        assert (outside / "record.json").read_text() == '{"preserved":true}'
+    finally:
+        if link.exists():
+            link.rmdir() if os.name == "nt" else link.unlink()
+
+
 def test_real_native_account_project_input_and_receipt_restore(configured, monkeypatch):
     pytest.importorskip("quant_studio")
     pytest.importorskip("quant_pipeline")
@@ -213,18 +404,25 @@ def test_real_native_account_project_input_and_receipt_restore(configured, monke
         end="2023-06-05",
         now=datetime(2023, 5, 31, tzinfo=timezone.utc),
     )
-    runs = base / "native-projects"
+    runs = base / "native-state/runs"
     ProjectStore(runs).save("验证项目", "仅使用合成测试资料")
+    (runs.parent / "state.json").write_text('{"preserved":true}')
     config["roots"]["account"] = {
         "path": str(account),
         "category": "account",
         "reader": "paper-account",
     }
-    config["roots"]["project"] = {"path": str(runs), "category": "project", "reader": "projects"}
+    config["roots"]["project"] = {
+        "path": str(runs.parent),
+        "category": "project",
+        "reader": "projects",
+        "reader_path": "runs",
+    }
     config["roots"]["data"] = {
-        "path": recipe["inputs"]["bundle"],
+        "path": str(Path(recipe["inputs"]["bundle"]).parent),
         "category": "data",
         "reader": "inputs",
+        "reader_path": Path(recipe["inputs"]["bundle"]).name,
     }
     receipt_root = Path(config["roots"]["receipt"]["path"])
     operation = {"status": "succeeded", "started_at": "2023-06-01T00:00:00Z"}
@@ -242,6 +440,9 @@ def test_real_native_account_project_input_and_receipt_restore(configured, monke
     assert checks["project"]["projects"]
     assert checks["data"]["frames"]
     assert checks["receipt"]["receipts"] == [operation["sha256"]]
+    assert (
+        Path(config["restore_destination"]) / "project/state.json"
+    ).read_text() == '{"preserved":true}'
     assert (account / "account.json").read_bytes() == definition
     assert (Path(config["restore_destination"]) / "account/account.json").read_bytes() == definition
     # A configured account container discovers later registrations automatically.
