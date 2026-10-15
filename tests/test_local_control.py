@@ -337,19 +337,25 @@ def test_stdlib_shim_identity_matches_external_probe():
     from quant_workspace.studio_host import current_identity
 
     expected = probe_python(sys.executable, ("quant-workspace",))["packages"]
-    assert current_identity(("quant-workspace",))["packages"] == expected
-    assert library_identity(("quant-workspace",))["packages"] == expected
+    actual = current_identity(("quant-workspace",))["packages"]
+    assert library_identity(("quant-workspace",))["packages"] == actual
+    # pytest may import the reviewed checkout while -I imports its identical
+    # ordinary installation. Verify content/algorithm without equating paths.
+    for name in expected:
+        assert {k: v for k, v in actual[name].items() if k != "source"} == {
+            k: v for k, v in expected[name].items() if k != "source"
+        }
 
 
-def test_legacy_admission_shim_keeps_original_queue_contract(configured, monkeypatch):
+def test_admission_guard_keeps_original_queue_contract(configured, monkeypatch):
     pytest.importorskip("quant_studio")
     from quant_studio import QuantStudioError, jobs
 
     from quant_workspace.studio_host import install_admission_guard
 
     monkeypatch.setattr(jobs.JobManager, "submit", jobs.JobManager.submit)
-    monkeypatch.delattr(jobs, "_admission_lock", raising=False)
-    assert install_admission_guard() == "legacy-wrapper"
+    expected = "native" if hasattr(jobs, "_admission_lock") else "legacy-wrapper"
+    assert install_admission_guard() == expected
     _, config = configured
     manager = jobs.JobManager(config["service"]["runs_root"], start_worker=False)
     try:
@@ -393,6 +399,48 @@ except QuantStudioError:
         **hidden_options(),
     )
     assert rejected.returncode == 17, rejected.stderr
+    # Exercise the actual immutable old JobManager, rather than deleting a
+    # helper still referenced by the new JobManager implementation.
+    guard_script = """
+import importlib.util, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('reviewed_host', sys.argv[1])
+host = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(host)
+assert host.install_admission_guard() == 'legacy-wrapper'
+from quant_studio import QuantStudioError
+from quant_studio.jobs import JobManager
+root = Path(sys.argv[2])
+manager = JobManager(root, start_worker=False)
+try:
+    marker = root / '.local-maintenance.json'
+    marker.write_text('{}')
+    try:
+        manager.submit('check', 'sample', {}, profile=None)
+    except QuantStudioError:
+        pass
+    else:
+        raise AssertionError('Legacy admission allowed maintenance work')
+    assert manager.list() == []
+    marker.unlink()
+    assert manager.submit('check', 'sample', {}, profile=None)['status'] == 'queued'
+finally:
+    manager.close()
+"""
+    guarded = subprocess.run(
+        [
+            legacy_python,
+            "-I",
+            "-c",
+            guard_script,
+            str(Path(control.__file__).with_name("studio_host.py")),
+            str(path.parent / "legacy-guard"),
+        ],
+        capture_output=True,
+        check=False,
+        **hidden_options(),
+    )
+    assert guarded.returncode == 0, guarded.stderr
     daily = path.parent / "daily.json"
     daily.write_text("{}")
     config["service"].update(settings=str(new_settings), daily_profile=str(daily))
@@ -409,6 +457,7 @@ except QuantStudioError:
         control.execute(path, "start", None, plan["plan_sha256"])
         record = control.status(config)["recorded_process"]
         assert record["startup_daily_profile"] == str(daily)
+        assert record["admission_protocol"] == "legacy-wrapper"
         assert record["packages"]["quant-studio"]["source"].startswith(str(legacy))
         # The old native configuration reader uses this explicit environment and
         # the frozen interpreter from its own compatible settings file.
