@@ -55,6 +55,11 @@ def configured(tmp_path, monkeypatch):
 
 def test_backup_restore_uses_transfer_and_never_overwrites_new_financial_state(configured):
     path, config = configured
+    jobs = Path(config["roots"]["project"]["path"]) / ".jobs"
+    jobs.mkdir()
+    (jobs / "completed.json").write_text('{"status":"succeeded"}')
+    log = "[2026-10-15] native task finished\nThis is a text log, not a JSON receipt."
+    (jobs / "completed.log").write_text(log)
     plan = backup.preview(path)
     receipt = backup.backup(path, plan["plan_sha256"])
     assert receipt["verified"] and not receipt["restore_verified"]
@@ -68,6 +73,7 @@ def test_backup_restore_uses_transfer_and_never_overwrites_new_financial_state(c
     assert json.loads(
         (Path(config["restore_destination"]) / "account/record.json").read_text()
     ) == {"name": "account"}
+    assert (Path(config["restore_destination"]) / "project/.jobs/completed.log").read_text() == log
     with pytest.raises(ValueError, match="must not exist"):
         backup.restore_drill(path)
 

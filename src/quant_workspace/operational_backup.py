@@ -169,7 +169,7 @@ def _files(config):
             ):
                 continue
             if (
-                path.parent.name == ".jobs"
+                (path.parent.name == ".jobs" and path.suffix == ".json")
                 or path.name == "operation.json"
                 or (row["category"] == "receipt" and path.suffix == ".json")
             ):
