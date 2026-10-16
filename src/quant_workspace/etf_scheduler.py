@@ -88,25 +88,26 @@ def parse_task(xml):
         "execute": text("t:Actions/t:Exec/t:Command"),
         "arguments": text("t:Actions/t:Exec/t:Arguments") or "",
         "working_directory": text("t:Actions/t:Exec/t:WorkingDirectory"),
-        "enabled": text("t:Settings/t:Enabled") == "true",
+        "enabled": (text("t:Settings/t:Enabled") or "true") == "true",
         "slots": sorted(datetime.fromisoformat(x).strftime("%H:%M") for x in starts),
         "logon_type": text("t:Principals/t:Principal/t:LogonType"),
-        "run_level": text("t:Principals/t:Principal/t:RunLevel"),
+        "run_level": text("t:Principals/t:Principal/t:RunLevel") or "LeastPrivilege",
         "user_sid": text("t:Principals/t:Principal/t:UserId"),
         "logon_sid": text("t:Triggers/t:LogonTrigger/t:UserId"),
         "beijing_slots": all(
             datetime.fromisoformat(x).utcoffset() == timedelta(hours=8) for x in starts
         ),
         "multiple_instances": text("t:Settings/t:MultipleInstancesPolicy"),
-        "wake": text("t:Settings/t:WakeToRun"),
-        "catchup": text("t:Settings/t:StartWhenAvailable"),
+        "wake": text("t:Settings/t:WakeToRun") or "false",
+        "catchup": text("t:Settings/t:StartWhenAvailable") or "false",
         "logon_trigger": len(root.findall("t:Triggers/t:LogonTrigger", ns)) == 1,
         "daily_intervals": [
             e.text
             for e in root.findall("t:Triggers/t:CalendarTrigger/t:ScheduleByDay/t:DaysInterval", ns)
         ],
         "all_triggers_enabled": all(
-            e.findtext("t:Enabled", namespaces=ns) == "true" for e in root.find("t:Triggers", ns)
+            (e.findtext("t:Enabled", namespaces=ns) or "true") == "true"
+            for e in root.find("t:Triggers", ns)
         ),
         "trigger_count": len(root.find("t:Triggers", ns)),
         "hard_terminate": text("t:Settings/t:AllowHardTerminate"),
@@ -121,8 +122,11 @@ def inspect_task(spec):
         raise ValueError("Invalid managed task name")
     command = (
         "$ErrorActionPreference='Stop'; "
+        "function Resolve-Sid([string]$s) { if($s -match '^S-1-') {$s} else {"
+        "([System.Security.Principal.NTAccount]::new($s)).Translate([System.Security.Principal.SecurityIdentifier]).Value}}; "
         f"$t=Get-ScheduledTask -TaskName '{name}' -TaskPath '\\'; "
         "$i=$t | Get-ScheduledTaskInfo; "
+        "$login=$t.Triggers | Where-Object {$_.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger'}; "
         "$cause=$null; try { $e=Get-WinEvent -FilterHashtable @{"
         "LogName='Microsoft-Windows-TaskScheduler/Operational';Id=107,110,118,119;"
         "StartTime=$i.LastRunTime.AddSeconds(-2)} -MaxEvents 100 -ErrorAction Stop | "
@@ -133,6 +137,8 @@ def inspect_task(spec):
         "@{xml=($t | Export-ScheduledTask);state=[string]$t.State;"
         "trigger_event=$cause;"
         "user_sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value;"
+        "user_name=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name;"
+        "principal_sid=(Resolve-Sid $t.Principal.UserId);logon_sid=(Resolve-Sid $login.UserId);"
         "last_run=$i.LastRunTime.ToString('o');last_result=$i.LastTaskResult} | ConvertTo-Json -Compress"
     )
     try:
@@ -165,10 +171,12 @@ def inspect_task(spec):
                 "daily_intervals": ["1"] * len(spec["slots"]),
                 "trigger_count": len(spec["slots"]) + 1,
                 "hard_terminate": "false",
-                "user_sid": info["user_sid"],
-                "logon_sid": info["user_sid"],
                 "beijing_slots": True,
             }.items()
+        )
+        verified = verified and (
+            info.get("principal_sid", actual["user_sid"]) == info["user_sid"]
+            and info.get("logon_sid", actual["logon_sid"]) == info["user_sid"]
         )
         return {
             "name": name,

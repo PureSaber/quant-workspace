@@ -144,3 +144,38 @@ def test_cli_preserves_startup_failure_and_probe_evidence(tmp_path, monkeypatch)
 def test_naive_timezone_is_not_a_beijing_task():
     xml = scheduler.task_xml(spec(), "S-1-5-21-1").replace("+08:00", "")
     assert not scheduler.parse_task(xml)["beijing_slots"]
+
+
+def test_windows_export_omits_defaults_and_normalizes_logon_user(monkeypatch):
+    value = {**spec(), "name": "Quant-ETF-Daily"}
+    xml = scheduler.task_xml(value, "S-1-5-21-1")
+    for element in [
+        "<RunLevel>LeastPrivilege</RunLevel>",
+        "<WakeToRun>false</WakeToRun>",
+        "<StartWhenAvailable>false</StartWhenAvailable>",
+        "<Enabled>true</Enabled>",
+    ]:
+        xml = xml.replace(element, "")
+    xml = xml.replace("<LogonTrigger><UserId>S-1-5-21-1", "<LogonTrigger><UserId>HOST\\user")
+    monkeypatch.setattr(scheduler, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(scheduler.subprocess, "CREATE_NO_WINDOW", 0, raising=False)
+    monkeypatch.setattr(
+        scheduler.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            stdout=json.dumps(
+                {
+                    "xml": xml,
+                    "user_sid": "S-1-5-21-1",
+                    "user_name": "HOST\\user",
+                    "principal_sid": "S-1-5-21-1",
+                    "logon_sid": "S-1-5-21-1",
+                    "state": "Disabled",
+                    "last_run": "1999-11-30",
+                    "last_result": 267011,
+                }
+            )
+        ),
+    )
+    result = scheduler.inspect_task(value)
+    assert result["verified"] and not result["enabled"]
