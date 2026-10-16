@@ -123,7 +123,15 @@ def inspect_task(spec):
         "$ErrorActionPreference='Stop'; "
         f"$t=Get-ScheduledTask -TaskName '{name}' -TaskPath '\\'; "
         "$i=$t | Get-ScheduledTaskInfo; "
+        "$cause=$null; try { $e=Get-WinEvent -FilterHashtable @{"
+        "LogName='Microsoft-Windows-TaskScheduler/Operational';Id=107,110,118,119;"
+        "StartTime=$i.LastRunTime.AddSeconds(-2)} -MaxEvents 100 -ErrorAction Stop | "
+        f"Where-Object {{$_.Properties[0].Value -eq '\\{name}'}} | Select-Object -First 1; "
+        "if($e -and [math]::Abs(($e.TimeCreated-$i.LastRunTime).TotalSeconds) -le 10) {"
+        "$cause=@{id=$e.Id;record_id=$e.RecordId;time=$e.TimeCreated.ToString('o');xml=$e.ToXml()}}"
+        " } catch {} ; "
         "@{xml=($t | Export-ScheduledTask);state=[string]$t.State;"
+        "trigger_event=$cause;"
         "user_sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value;"
         "last_run=$i.LastRunTime.ToString('o');last_result=$i.LastTaskResult} | ConvertTo-Json -Compress"
     )
@@ -169,6 +177,10 @@ def inspect_task(spec):
             "state": info["state"],
             "last_run": info["last_run"],
             "last_result": info["last_result"],
+            "trigger_event": info.get("trigger_event"),
+            "natural_trigger": bool(
+                info.get("trigger_event") and info["trigger_event"]["id"] == 107
+            ),
             "reason": "" if verified else "Task configuration differs from approved definition",
         }
     except (OSError, ValueError, subprocess.SubprocessError) as exc:

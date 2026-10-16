@@ -57,6 +57,7 @@ def test_inspection_compares_actual_task_and_missing_is_not_disabled(monkeypatch
     )
     assert scheduler.inspect_task(value)["verified"]
     assert scheduler.inspect_task(value)["enabled"]
+    assert not scheduler.inspect_task(value)["natural_trigger"]
     assert not scheduler.inspect_task({**value, "arguments": "different"})["verified"]
 
     def fail(*args, **kwargs):
@@ -67,6 +68,30 @@ def test_inspection_compares_actual_task_and_missing_is_not_disabled(monkeypatch
     assert not scheduler.inspect_task(value)["enabled"]
     with pytest.raises(ValueError, match="Invalid managed task"):
         scheduler.inspect_task({**value, "name": "invalid'command"})
+
+
+@pytest.mark.parametrize("event_id,natural", [(107, True), (110, False), (119, False)])
+def test_natural_credit_requires_time_trigger_not_manual_or_logon(monkeypatch, event_id, natural):
+    value = {**spec(), "name": "Quant-ETF-Daily"}
+    monkeypatch.setattr(scheduler, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(scheduler.subprocess, "CREATE_NO_WINDOW", 0, raising=False)
+    monkeypatch.setattr(
+        scheduler.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            stdout=json.dumps(
+                {
+                    "xml": scheduler.task_xml(value, "S-1-5-21-1", enabled=True),
+                    "user_sid": "S-1-5-21-1",
+                    "state": "Running",
+                    "last_run": "2026-10-16T16:30:00+08:00",
+                    "last_result": 0,
+                    "trigger_event": {"id": event_id, "record_id": 100},
+                }
+            )
+        ),
+    )
+    assert scheduler.inspect_task(value)["natural_trigger"] is natural
 
 
 def test_start_service_delegates_to_native_controller(monkeypatch):
