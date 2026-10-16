@@ -8,7 +8,7 @@ import os
 import re
 import subprocess
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -92,6 +92,11 @@ def parse_task(xml):
         "slots": sorted(datetime.fromisoformat(x).strftime("%H:%M") for x in starts),
         "logon_type": text("t:Principals/t:Principal/t:LogonType"),
         "run_level": text("t:Principals/t:Principal/t:RunLevel"),
+        "user_sid": text("t:Principals/t:Principal/t:UserId"),
+        "logon_sid": text("t:Triggers/t:LogonTrigger/t:UserId"),
+        "beijing_slots": all(
+            datetime.fromisoformat(x).utcoffset() == timedelta(hours=8) for x in starts
+        ),
         "multiple_instances": text("t:Settings/t:MultipleInstancesPolicy"),
         "wake": text("t:Settings/t:WakeToRun"),
         "catchup": text("t:Settings/t:StartWhenAvailable"),
@@ -119,6 +124,7 @@ def inspect_task(spec):
         f"$t=Get-ScheduledTask -TaskName '{name}' -TaskPath '\\'; "
         "$i=$t | Get-ScheduledTaskInfo; "
         "@{xml=($t | Export-ScheduledTask);state=[string]$t.State;"
+        "user_sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value;"
         "last_run=$i.LastRunTime.ToString('o');last_result=$i.LastTaskResult} | ConvertTo-Json -Compress"
     )
     try:
@@ -151,6 +157,9 @@ def inspect_task(spec):
                 "daily_intervals": ["1"] * len(spec["slots"]),
                 "trigger_count": len(spec["slots"]) + 1,
                 "hard_terminate": "false",
+                "user_sid": info["user_sid"],
+                "logon_sid": info["user_sid"],
+                "beijing_slots": True,
             }.items()
         )
         return {
@@ -192,7 +201,17 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.command == "start-studio":
-        result = start_studio(args.config)
+        try:
+            result = start_studio(args.config)
+        except Exception as exc:
+            result = {"state": "failed", "error": str(exc)}
+            if args.output:
+                args.output.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+            raise
+        if args.output:
+            args.output.write_text(
+                json.dumps(result, ensure_ascii=False, default=str), encoding="utf-8"
+            )
     elif args.command == "probe":
         # Registered temporary task writes only its own evidence, never calls business code.
         result = {

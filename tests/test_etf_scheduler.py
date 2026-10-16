@@ -47,6 +47,7 @@ def test_inspection_compares_actual_task_and_missing_is_not_disabled(monkeypatch
             stdout=json.dumps(
                 {
                     "xml": xml,
+                    "user_sid": "S-1-5-21-1",
                     "state": "Ready",
                     "last_run": "2026-10-16T16:30:00+08:00",
                     "last_result": 0,
@@ -90,3 +91,31 @@ def test_start_service_delegates_to_native_controller(monkeypatch):
     )
     assert scheduler.start_studio("config")["state"] == "started"
     assert calls == [("config", "start", "reviewed", "sha")]
+
+
+def test_cli_preserves_startup_failure_and_probe_evidence(tmp_path, monkeypatch):
+    import sys
+
+    output = tmp_path / "result.json"
+    config = tmp_path / "config.json"
+    monkeypatch.setattr(
+        sys, "argv", ["scheduler", "probe", "--config", str(config), "--output", str(output)]
+    )
+    scheduler.main()
+    assert json.loads(output.read_text())["business_data_changed"] is False
+    monkeypatch.setattr(
+        sys, "argv", ["scheduler", "start-studio", "--config", str(config), "--output", str(output)]
+    )
+
+    def fail(path):
+        raise ValueError("Port is owned by another process")
+
+    monkeypatch.setattr(scheduler, "start_studio", fail)
+    with pytest.raises(ValueError, match="Port is owned"):
+        scheduler.main()
+    assert json.loads(output.read_text())["state"] == "failed"
+
+
+def test_naive_timezone_is_not_a_beijing_task():
+    xml = scheduler.task_xml(spec(), "S-1-5-21-1").replace("+08:00", "")
+    assert not scheduler.parse_task(xml)["beijing_slots"]
