@@ -68,6 +68,29 @@ def test_stale_preview_rejects_changed_settings_and_busy_work(configured, monkey
     assert not marker.exists()
 
 
+def test_switch_away_requires_verified_disabled_daily_writer(configured, monkeypatch):
+    from quant_workspace import etf_scheduler
+
+    path, config = configured
+    config["scheduled_writer"] = {"runtime": "operations", "task": {"name": "Quant-ETF-Daily"}}
+    _write_atomic(path, config)
+    mock_identity(monkeypatch)
+    monkeypatch.setattr(
+        etf_scheduler, "inspect_task", lambda _: {"verified": True, "enabled": True}
+    )
+    with pytest.raises(ValueError, match="Pause and verify"):
+        control.preview(path, "rollback", "old")
+    monkeypatch.setattr(
+        etf_scheduler, "inspect_task", lambda _: {"verified": False, "enabled": False}
+    )
+    with pytest.raises(ValueError, match="Pause and verify"):
+        control.preview(path, "rollback", "old")
+    monkeypatch.setattr(
+        etf_scheduler, "inspect_task", lambda _: {"verified": True, "enabled": False}
+    )
+    assert control.preview(path, "rollback", "old")["target"] == "old"
+
+
 def test_admission_lock_blocks_other_process_then_marker_blocks_new_submission(configured):
     _, config = configured
     runs = config["service"]["runs_root"]

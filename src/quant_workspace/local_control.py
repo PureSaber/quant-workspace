@@ -352,6 +352,15 @@ def preview(config_path, action, target=None):
     config = load_config(config_path)
     check_idle(config)
     target = target or _selected(config)
+    writer = config.get("scheduled_writer")
+    if writer and action in {"activate", "rollback"} and target != writer["runtime"]:
+        from quant_workspace.etf_scheduler import inspect_task
+
+        scheduled = inspect_task(writer["task"])
+        if not scheduled.get("verified") or scheduled.get("enabled"):
+            raise ValueError(
+                "Pause and verify the ETF scheduled writer before changing its runtime"
+            )
     selected = _selected(config)
     if action in {"start", "stop", "restart"} and target != selected:
         raise ValueError("Use activate/rollback to change the selected runtime")

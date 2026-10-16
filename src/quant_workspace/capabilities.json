@@ -1,6 +1,6 @@
 {
   "schema_version": "quant.capabilities/v1",
-  "as_of": "2026-10-12",
+  "as_of": "2026-10-16",
   "scope": "26个维护仓库的功能声明；源码、安装、组合验收和运行状态独立核验；历史发行不认证当前主线",
   "release_scopes": {
     "m8_runtime": {
@@ -723,14 +723,16 @@
         "保存账户证据的只读检查",
         "报告编排",
         "同库事务批次提交、子任务租约和取消、显式失败重试；复用原Worker和共享CAS输入",
-        "可选 Linux Docker 执行隔离；只读输入、独立客户端配置、断网、资源及输出限制和整容器清理"
+        "可选 Linux Docker 执行隔离；只读输入、独立客户端配置、断网、资源及输出限制和整容器清理",
+        "独立ETF运维入口：保留冻结执行环境，按原窗口调度、分类故障、预览恢复、核验账户并推导六交易日运维验收"
       ],
       "entrypoints": [
         "quant-pipe run",
         "研究工作台run.py",
         "python -m quant_pipeline.research_paper inspect",
         "python -m quant_pipeline.durable_client capabilities/batch-submit/batch-get/batch-list/batch-cancel/batch-retry",
-        "python -m quant_pipeline.isolation --policy POLICY --inputs INPUTS --output NEW_DIRECTORY -- COMMAND"
+        "python -m quant_pipeline.isolation --policy POLICY --inputs INPUTS --output NEW_DIRECTORY -- COMMAND",
+        "python -m quant_pipeline.etf_operations status/tick/recover-plan/recover-execute"
       ],
       "contracts": [
         "quant.research-recipe/v1",
@@ -740,7 +742,10 @@
         "quant.job-batch-state/v1",
         "quant.durable-capabilities/v1",
         "quant.research-isolation/v1",
-        "quant.research-isolation-result/v1"
+        "quant.research-isolation-result/v1",
+        "quant.etf-operations/v1",
+        "quant.etf-operation/v1",
+        "quant.etf-recovery-plan/v1"
       ],
       "data_status": "流程及只读账户检查可用；检查核验保存证据，不刷新行情或增加自然前向天数",
       "gaps": [
@@ -760,7 +765,10 @@
         "src/quant_pipeline/isolation.py",
         "src/quant_pipeline/isolation_collect.py",
         "tests/test_isolation_docker.py",
-        "docs/research-isolation.md"
+        "docs/research-isolation.md",
+        "docs/etf-operations.md",
+        "tests/test_etf_operations.py",
+        "tests/test_etf_frozen_worker.py"
       ]
     },
     {
@@ -939,13 +947,15 @@
         "项目证据页与显式复核动作；Notebook、原生运行和运行前失败均可追踪",
         "持久化研究批次页面和能力探测，配置的Pipeline仍在独立环境执行",
         "平台状态页：当前进程身份、启动源码和磁盘漂移，以及最近一次工作区检查结果",
-        "Notebook 可显式选择研究隔离政策，收集执行证据并显示不支持环境的拒绝原因"
+        "Notebook 可显式选择研究隔离政策，收集执行证据并显示不支持环境的拒绝原因",
+        "ETF中文今日状态、独立数据与账户日期、只读核验及15分钟有效的恢复预览确认"
       ],
       "entrypoints": [
         "python -m quant_studio serve/check",
         "/platform-status",
         "/durable-research",
-        "/projects/{id}/evidence"
+        "/projects/{id}/evidence",
+        "/today"
       ],
       "contracts": [
         "模板请求",
@@ -958,7 +968,7 @@
       "data_status": "各应用在独立固定环境运行，新增证据页/平台状态/批次研究有软件集成验收；实际服务启动身份与保存的跨仓观测分别展示。合成工程验收不认证真实金融业务，最新主线不继承历史验收。实际部署需选择并核验版本组合。",
       "gaps": [
         "A股完整真实历史PIT缓存及业务GUI验收暂缓",
-        "真实账户来源和新增业务场景按独立资料验收；ETF自动化保持PAUSED",
+        "真实账户来源和新增业务场景按独立资料验收；ETF当前账户、任务启用及六日验收分别以部署凭证和原生回执为准，不继承旧账户暂停状态",
         "基金及港股嵌入报告MutationObserver宿主兼容问题暂缓，具体注入来源与调用栈尚未确认",
         "新增衍生品工程验收不等于完整真实历史/交易所保证金/真实成交认证",
         "默认受信本地执行不获得容器隔离声明；Linux 实测证据不认证本机 Windows 可执行隔离"
@@ -998,7 +1008,9 @@
         "DURABLE_RESEARCH.md",
         "src/quant_studio/project_evidence.py",
         "RESEARCH_EVIDENCE.md",
-        "tests/test_project_evidence.py"
+        "tests/test_project_evidence.py",
+        "docs/etf-operations.md",
+        "tests/test_etf_operations_web.py"
       ]
     },
     {
@@ -1018,7 +1030,8 @@
         "候选发布、实际验收、CAS切换及allowlist迁移恢复",
         "可选本地源码机构研究入口与合成输入生成器（未运行验收）",
         "统一源码、安装环境、组合验收、发布指针的只读状态JSON/HTML；所需CI作业跳过不能算通过",
-        "八项研究完整性升级的跨仓入口、固定源码组合与验收边界索引"
+        "八项研究完整性升级的跨仓入口、固定源码组合与验收边界索引",
+        "Windows ETF任务定义及实际状态核验；普通用户登录令牌、禁止历史补触发，软件回退前核验自动写入已停用"
       ],
       "entrypoints": [
         "quant-workspace show/path/capabilities/stack-manifest/verify-stack",
@@ -1027,7 +1040,8 @@
         "quant-workspace transfer-package/verify-transfer/restore-transfer",
         "python profiles/institutional-research/run.py",
         "quant-workspace platform-status",
-        "profiles/evidence-research/README.md"
+        "profiles/evidence-research/README.md",
+        "python -m quant_workspace.etf_scheduler"
       ],
       "contracts": [
         "quant.capabilities/v1",
@@ -1057,7 +1071,9 @@
         "profiles/institutional-research/run.py",
         "profiles/institutional-research/examples.py",
         "src/quant_workspace/platform_status.py",
-        "profiles/evidence-research/README.md"
+        "profiles/evidence-research/README.md",
+        "docs/etf-windows-schedule.md",
+        "tests/test_etf_scheduler.py"
       ]
     },
     {
