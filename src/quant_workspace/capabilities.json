@@ -1,7 +1,7 @@
 {
   "schema_version": "quant.capabilities/v1",
-  "as_of": "2026-10-16",
-  "scope": "26个维护仓库的功能声明；源码、安装、组合验收和运行状态独立核验；历史发行不认证当前主线",
+  "as_of": "2026-10-19",
+  "scope": "26个维护仓库的功能声明；本次针对风险模型、组合约束与Agent控制更新；源码、安装、组合验收和运行状态独立核验；历史发行不认证当前主线",
   "release_scopes": {
     "m8_runtime": {
       "status": "M8_SOFTWARE_RELEASE_COMPLETE / MARKET_DATA_GA_BLOCKED",
@@ -617,7 +617,8 @@
       "data_status": "消费策略输出；组合会计通过不证明信号有效",
       "gaps": [
         "真实容量和冲击模型校准",
-        "新连续研究采用已声明的次期价格成交假设；不自动推导成交容量，当前数据修订样例的 features/forecasts 阶段明确 unavailable"
+        "新连续研究采用已声明的次期价格成交假设；不自动推导成交容量，当前数据修订样例的 features/forecasts 阶段明确 unavailable",
+        "整数目标的有界搜索失败不等于结构无解；需分别报告结构冲突、风险输入缺失、求解失败、实际目标发布率与最长无目标区间；全现金完成不证明策略可执行"
       ],
       "evidence": [
         "README.md",
@@ -639,7 +640,9 @@
         "因子风险",
         "事前风险门禁",
         "期初可得输入的逐期风险预测与成熟收益校验；组合、主动及单资产总方差评分；完整输入重算和零方差保留",
-        "按预定时间窗分别诊断特征、预测、信号、尾部风险、成本、策略收益与操作失败；显式样本和不确定性"
+        "按预定时间窗分别诊断特征、预测、信号、尾部风险、成本、策略收益与操作失败；显式样本和不确定性",
+        "Barra风格因子形式XFXᵀ+D、公开PIT风格与行业暴露；固定200家公司历史重建、风险预测及原生组合账本研究",
+        "结构性TE/换手不可行下界证书、风险资产覆盖诊断及独立整数执行目标审计；失败类型与模型晋级分开"
       ],
       "entrypoints": [
         "quant-risk check",
@@ -657,13 +660,15 @@
         "quant.model-diagnostic-plan/v1",
         "quant.model-diagnostics/v1"
       ],
-      "data_status": "线性风险框架和统计代理可用；四ETF固定等权参考组合完成189期、1134项评分，逐期模型与ASM原生路径精确一致，35份来源不变。组合bias statistic为1.0633，主动风险为1.3078；单资产存在明显尺度差异，未声明校准通过。评价重用既有历史，非原策略账户净收益，不增加独立前向；未声明完整Barra",
+      "data_status": "四ETF统计代理研究保留；另有固定200家公司、截至2026-09-30的公开历史重建，v3比较22项配置、51,480条预测。2024—2026为已观察历史诊断，不是新增独立前向；模型替换未通过。不等同于MSCI商业Barra或历史全市场覆盖",
       "gaps": [
-        "宽截面PIT风格行业",
-        "特异风险校准",
+        "固定样本以外的完整历史证券池及经独立认证的当时可得数据版本",
+        "特异风险与估计器在独立样本上的校准；可靠数据恢复不保证预测改进",
         "ETF穿透",
-        "独立样本外验证",
-        "有界块均值区间依赖独立块假设；不完整观测降为描述，不能证明策略失效或自动恢复交易"
+        "默认模型替换仍需既定80个独立、不重叠、已成熟的五交易日窗口；历史重放不计入",
+        "停牌/退市持仓的可靠风险输入和确切公司行动权益仍有缺口；缺失输入、结构冲突、有界搜索失败和全现金完成必须分别报告",
+        "有界块均值区间依赖独立块假设；不完整观测降为描述，不能证明策略失效或自动恢复交易",
+        "未合并的研究修复须独立核验其提交与交付回执，不能视为当前主线或默认模型晋级"
       ],
       "evidence": [
         "README.md",
@@ -673,7 +678,10 @@
         "examples/risk_forecast_study.json",
         "src/quant_risk_monitor/model_diagnostics.py",
         "examples/model_diagnostics_demo.py",
-        "docs/MODEL_DIAGNOSTICS.md"
+        "docs/MODEL_DIAGNOSTICS.md",
+        "docs/BARRA_200_V3.md",
+        "research/public_a_share/FAILURE_REPAIR.md",
+        "research/public_a_share/README.md"
       ]
     },
     {
@@ -878,7 +886,8 @@
         "运行后QA复核",
         "研究证据检查",
         "项目/Notebook/原生运行/Lab证据联邦与显式研究复核，保留失败尝试及失效证据；生命周期不授予执行权限",
-        "答案与候选证据包分离的助手评测：财务计算、遗漏、冲突、比较口径、可得时间和拒答；离线无标签基线"
+        "答案与候选证据包分离的助手评测：财务计算、遗漏、冲突、比较口径、可得时间和拒答；离线无标签基线",
+        "在线节点显式QUANT_AGENT_LLM_OK授权、enable_llm门禁和默认run_dir路径脱敏；temperature已接线"
       ],
       "entrypoints": [
         "quant-review run",
@@ -896,7 +905,8 @@
       "data_status": "运行后审查；不执行券商交易",
       "gaps": [
         "只覆盖显式关联来源；文件完整性不代表统计有效性、研究结论或交易授权",
-        "评测限定结构化主张；公开回归标签不是未见独立留出；未测在线模型质量或任意自然语言推理"
+        "评测限定结构化主张；公开回归标签不是未见独立留出；未测在线模型质量或任意自然语言推理",
+        "默认路径脱敏仅覆盖显式路径字段，不是任意源文本/发现内容的完整秘密过滤；rules.flag_nan_factors仍需核对接线"
       ],
       "evidence": [
         "README.md",
@@ -907,7 +917,10 @@
         "src/quant_agent/assistant_assessment.py",
         "src/quant_agent/assessment_baseline.py",
         "benchmarks/assistant-v1/public/cases.json",
-        "benchmarks/assistant-v1/evaluator/labels.json"
+        "benchmarks/assistant-v1/evaluator/labels.json",
+        "src/quant_agent/nodes/pipeline.py",
+        "docs/DATA_POLICY.md",
+        "tests/test_llm_policy.py"
       ]
     },
     {
